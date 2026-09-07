@@ -464,7 +464,7 @@ export default function Home() {
         />
 
         {/* Dynamic Tab Body */}
-        <main className="flex-1 p-6 overflow-y-auto">
+        <main id="main-scroll-container" className="flex-1 p-6 overflow-y-auto">
           {activeTab === 'dashboard' && (
             <OverviewTab
               projects={projects}

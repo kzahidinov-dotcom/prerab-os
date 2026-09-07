@@ -15,8 +15,11 @@ import {
   Tag, 
   Image as ImageIcon,
   Building,
-  DollarSign
+  DollarSign,
+  ArrowUp,
+  ArrowDown
 } from 'lucide-react';
+import { scrollToTop, scrollToBottom } from '@/lib/scroll';
 
 interface CostTrackingTabProps {
   expenses: Expense[];
@@ -67,7 +70,10 @@ export const CostTrackingTab: React.FC<CostTrackingTabProps> = ({
   const totalOverheadCosts = filteredExpenses.filter(e => !e.project_id).reduce((sum, e) => sum + (e.amount_with_vat || e.amount_without_vat || 0), 0);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 relative">
+      {/* Top Anchor for Quick Scroll */}
+      <div id="costs-top-anchor" className="h-0 w-0 pointer-events-none" />
+
       {/* Top Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
@@ -136,9 +142,31 @@ export const CostTrackingTab: React.FC<CostTrackingTabProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Quick Scroll Buttons in Toolbar */}
+          <div className="flex items-center gap-1 bg-slate-100/90 p-1 rounded-lg border border-slate-200/80">
+            <button
+              type="button"
+              onClick={scrollToTop}
+              className="flex items-center gap-1 px-2.5 py-1 text-slate-700 hover:text-slate-950 hover:bg-white rounded-md text-xs font-semibold transition-all shadow-2xs active:scale-95"
+              title="Сразу вверх (к началу таблицы)"
+            >
+              <ArrowUp className="w-3.5 h-3.5 text-amber-500" />
+              <span className="hidden md:inline">Сразу вверх</span>
+            </button>
+            <button
+              type="button"
+              onClick={scrollToBottom}
+              className="flex items-center gap-1 px-2.5 py-1 text-slate-700 hover:text-slate-950 hover:bg-white rounded-md text-xs font-semibold transition-all shadow-2xs active:scale-95"
+              title="Сразу вниз (в самый конец к последним чекам)"
+            >
+              <ArrowDown className="w-3.5 h-3.5 text-amber-500" />
+              <span className="hidden md:inline">Сразу вниз</span>
+            </button>
+          </div>
+
           <button
             onClick={() => onOpenNewExpense()}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-semibold shadow-sm transition-all shrink-0"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-semibold shadow-sm transition-all shrink-0 active:scale-95"
           >
             <Plus className="w-4 h-4" />
             <span>Записать чек / расход</span>
@@ -223,6 +251,27 @@ export const CostTrackingTab: React.FC<CostTrackingTabProps> = ({
                   </tr>
                 );
               })}
+              {filteredExpenses.length > 0 && (
+                <tr className="bg-slate-50 border-t-2 border-slate-200 font-semibold text-slate-600">
+                  <td colSpan={5} className="p-3.5">
+                    Показано <span className="font-black text-slate-900">{filteredExpenses.length}</span> из <span className="font-black text-slate-900">{expenses.length}</span> чеков
+                  </td>
+                  <td className="p-3.5 text-right font-black text-slate-900 text-sm">
+                    {formatCurrency(totalAmount)}
+                  </td>
+                  <td colSpan={2} className="p-3.5 text-center">
+                    <button
+                      type="button"
+                      onClick={scrollToTop}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-md text-xs font-semibold shadow-2xs transition-all active:scale-95"
+                      title="Сразу вверх"
+                    >
+                      <ArrowUp className="w-3 h-3 text-amber-500" />
+                      <span>В самый верх</span>
+                    </button>
+                  </td>
+                </tr>
+              )}
               {filteredExpenses.length === 0 && (
                 <tr>
                   <td colSpan={10} className="text-center py-10 text-slate-400">
@@ -234,6 +283,40 @@ export const CostTrackingTab: React.FC<CostTrackingTabProps> = ({
           </table>
         </div>
       </div>
+
+      {/* Anchor for Bottom Jump */}
+      <div id="costs-bottom-anchor" className="h-0 w-0 pointer-events-none" />
+
+      {/* Floating Quick Scroll Controls (Sticky FAB) */}
+      <aside aria-label="Быстрый скролл" className="fixed bottom-6 right-6 z-40 flex items-center bg-slate-950/90 hover:bg-slate-950 text-white rounded-full shadow-2xl border border-slate-700/90 backdrop-blur-md p-1.5 gap-1.5 transition-all">
+        <button
+          type="button"
+          onClick={scrollToTop}
+          className="flex items-center gap-1.5 px-3 py-1.5 hover:bg-slate-800 rounded-full text-xs font-semibold text-slate-200 hover:text-amber-400 transition-all active:scale-95 group"
+          title="Сразу вверх (к фильтрам и началу списка)"
+        >
+          <ArrowUp className="w-4 h-4 text-amber-400 group-hover:-translate-y-0.5 transition-transform" />
+          <span className="font-medium text-xs">Вверх</span>
+        </button>
+
+        <div className="h-4 w-px bg-slate-700/80" />
+
+        <span className="px-2 text-[11px] font-mono text-slate-400 font-semibold select-none whitespace-nowrap">
+          {filteredExpenses.length} чеков
+        </span>
+
+        <div className="h-4 w-px bg-slate-700/80" />
+
+        <button
+          type="button"
+          onClick={scrollToBottom}
+          className="flex items-center gap-1.5 px-3 py-1.5 hover:bg-slate-800 rounded-full text-xs font-semibold text-slate-200 hover:text-amber-400 transition-all active:scale-95 group"
+          title="Сразу вниз (в самый конец к последним чекам)"
+        >
+          <span className="font-medium text-xs">Вниз</span>
+          <ArrowDown className="w-4 h-4 text-amber-400 group-hover:translate-y-0.5 transition-transform" />
+        </button>
+      </aside>
 
       {/* Photo Preview Modal */}
       {previewPhoto && (

@@ -15,8 +15,11 @@ import {
   TrendingUp,
   Sparkles,
   CheckSquare,
-  CalendarRange
+  CalendarRange,
+  ArrowUp,
+  ArrowDown
 } from 'lucide-react';
+import { scrollToTop, scrollToBottom } from '@/lib/scroll';
 
 export type NavTab = 
   | 'dashboard' 
@@ -155,10 +158,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
           const isActive = activeTab === item.id;
 
           return (
-            <button
+            <div
               key={item.id}
+              role="button"
+              tabIndex={0}
               onClick={() => setActiveTab(item.id)}
-              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-all group ${
+              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-all group cursor-pointer select-none ${
                 isActive
                   ? 'bg-gradient-to-r from-brand-500 to-brand-600 text-slate-950 shadow-lg shadow-brand-500/20 font-bold'
                   : 'text-slate-300 hover:bg-slate-900 hover:text-brand-300'
@@ -173,16 +178,58 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <span>{item.label}</span>
               </div>
 
-              {item.badge && (
-                <span
-                  className={`px-2 py-0.5 rounded-full text-xs ${
-                    item.badgeColor || 'bg-slate-800 text-slate-300'
-                  }`}
-                >
-                  {item.badge}
-                </span>
-              )}
-            </button>
+              <div className="flex items-center gap-1.5">
+                {item.id === 'costs' && (
+                  <div
+                    className="flex items-center gap-0.5"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (!isActive) setActiveTab('costs');
+                        setTimeout(scrollToTop, 50);
+                      }}
+                      className={`p-1 rounded transition-colors ${
+                        isActive
+                          ? 'hover:bg-amber-600/70 text-slate-950 hover:text-white'
+                          : 'hover:bg-slate-800 text-slate-400 hover:text-amber-400'
+                      }`}
+                      title="Сразу вверх"
+                    >
+                      <ArrowUp className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (!isActive) setActiveTab('costs');
+                        setTimeout(scrollToBottom, 50);
+                      }}
+                      className={`p-1 rounded transition-colors ${
+                        isActive
+                          ? 'hover:bg-amber-600/70 text-slate-950 hover:text-white'
+                          : 'hover:bg-slate-800 text-slate-400 hover:text-amber-400'
+                      }`}
+                      title="Сразу вниз"
+                    >
+                      <ArrowDown className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
+
+                {item.badge && (
+                  <span
+                    className={`px-2 py-0.5 rounded-full text-xs ${
+                      item.badgeColor || 'bg-slate-800 text-slate-300'
+                    }`}
+                  >
+                    {item.badge}
+                  </span>
+                )}
+              </div>
+            </div>
           );
         })}
       </nav>
