@@ -211,7 +211,7 @@ export const GanttChart: React.FC<GanttChartProps> = ({
       if (onSaveTasksBatch) {
         onSaveTasksBatch(updatedBatch);
       } else {
-        storage.saveTasksBatch(updatedBatch);
+        storage.saveScheduleStagesBatch(updatedBatch);
         updatedBatch.forEach(t => onSaveTask(t));
       }
     }
@@ -224,12 +224,13 @@ export const GanttChart: React.FC<GanttChartProps> = ({
   };
 
   // Apply Schedule Template with Vasilich Norms
-  const handleApplyTemplate = (newTasks: Task[], targetProjId: string) => {
+  const handleApplyTemplate = (newStages: Task[], targetProjId: string) => {
+    const marked = newStages.map(s => ({ ...s, is_stage: true }));
     if (onSaveTasksBatch) {
-      onSaveTasksBatch(newTasks);
+      onSaveTasksBatch(marked);
     } else {
-      storage.saveTasksBatch(newTasks);
-      newTasks.forEach(t => onSaveTask(t));
+      storage.saveScheduleStagesBatch(marked);
+      marked.forEach(t => onSaveTask(t));
     }
     setSelectedProjectId(targetProjId);
   };
@@ -658,7 +659,7 @@ export const GanttChart: React.FC<GanttChartProps> = ({
             setEditingTask(undefined);
           }}
           onSave={(saved) => {
-            onSaveTask(saved);
+            onSaveTask({ ...saved, is_stage: true });
             setIsTaskModalOpen(false);
             setEditingTask(undefined);
           }}

@@ -54,6 +54,7 @@ export default function Home() {
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [workLogs, setWorkLogs] = useState<WorkLog[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [scheduleStages, setScheduleStages] = useState<Task[]>([]);
   const [settings, setSettings] = useState<CompanySettings>(storage.getSettings());
 
   // Modals state
@@ -74,6 +75,7 @@ export default function Home() {
   // Initialize and load data
   const loadAllData = () => {
     storage.initSeedData();
+    storage.purgePlannerStagesFromTasks();
     setClients(storage.getClients());
     setProjects(storage.getProjects());
     setBudgets(storage.getBudgets());
@@ -82,6 +84,7 @@ export default function Home() {
     setWorkers(storage.getWorkers());
     setWorkLogs(storage.getWorkLogs());
     setTasks(storage.getTasks());
+    setScheduleStages(storage.getScheduleStages());
     setSettings(storage.getSettings());
   };
 
@@ -348,6 +351,44 @@ export default function Home() {
     setTasks(storage.getTasks());
   };
 
+  // Dedicated Schedule Stages handlers (План-график объектов / Гант)
+  const handleSaveScheduleStage = (stage: Task) => {
+    setScheduleStages(prev => {
+      const existingIndex = prev.findIndex(s => s.id === stage.id);
+      let updated: Task[];
+      const marked = { ...stage, is_stage: true };
+      if (existingIndex >= 0) {
+        updated = [...prev];
+        updated[existingIndex] = marked;
+      } else {
+        updated = [marked, ...prev];
+      }
+      storage.saveScheduleStages(updated);
+      return updated;
+    });
+  };
+
+  const handleSaveScheduleStagesBatch = (batch: Task[]) => {
+    setScheduleStages(prev => {
+      const stageMap = new Map<string, Task>();
+      prev.forEach(s => stageMap.set(s.id, s));
+      batch.forEach(s => stageMap.set(s.id, { ...s, is_stage: true }));
+      const updated = Array.from(stageMap.values());
+      storage.saveScheduleStages(updated);
+      return updated;
+    });
+  };
+
+  const handleDeleteScheduleStage = (stageId: string) => {
+    storage.deleteScheduleStage(stageId);
+    setScheduleStages(storage.getScheduleStages());
+  };
+
+  const handleToggleScheduleStageStatus = (stageId: string) => {
+    storage.toggleScheduleStageStatus(stageId);
+    setScheduleStages(storage.getScheduleStages());
+  };
+
   const handleSyncGoogleSheets = async () => {
     const { syncFromGoogleSheets } = await import('@/lib/google-sheets-sync');
     const result = await syncFromGoogleSheets();
@@ -499,14 +540,14 @@ export default function Home() {
 
           {activeTab === 'gantt' && (
             <GanttChart
-              tasks={tasks}
+              tasks={scheduleStages}
               projects={projects}
               users={auth.getUsers()}
               currentUserId={currentUser?.id}
-              onSaveTask={handleSaveTask}
-              onSaveTasksBatch={handleSaveTasksBatch}
-              onDeleteTask={handleDeleteTask}
-              onToggleTaskStatus={handleToggleTaskStatus}
+              onSaveTask={handleSaveScheduleStage}
+              onSaveTasksBatch={handleSaveScheduleStagesBatch}
+              onDeleteTask={handleDeleteScheduleStage}
+              onToggleTaskStatus={handleToggleScheduleStageStatus}
             />
           )}
 

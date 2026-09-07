@@ -337,7 +337,10 @@ export interface Task {
   created_at: string;
   updated_at: string;
   completed_at?: string;
+  is_stage?: boolean;           // Флаг: принадлежит ли запись план-графику (Гант), а не оперативным задачам
 }
+
+export type ScheduleStage = Task;
 
 export interface ScheduleTemplateStage {
   id: string;

@@ -300,9 +300,9 @@ export const ScheduleTemplateModal: React.FC<ScheduleTemplateModalProps> = ({
     const createdTaskIds: string[] = [];
     const newTasks: Task[] = [];
 
-    // Pre-generate Task IDs so dependencies reference real UUIDs
+    // Pre-generate Stage IDs so dependencies reference real UUIDs
     calculated.forEach((_, idx) => {
-      createdTaskIds.push(`tsk-tmpl-${Date.now()}-${idx}`);
+      createdTaskIds.push(`stg-tmpl-${Date.now()}-${idx}`);
     });
 
     const assigneeUser = users.find(u => u.id === applyAssigneeId);
@@ -347,6 +347,7 @@ export const ScheduleTemplateModal: React.FC<ScheduleTemplateModalProps> = ({
         created_by: 'Керим',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
+        is_stage: true,
       };
 
       newTasks.push(newTask);

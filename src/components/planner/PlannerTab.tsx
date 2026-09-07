@@ -27,7 +27,7 @@ import {
   GitBranch
 } from 'lucide-react';
 import { TaskModal } from './TaskModal';
-import { GanttChart } from './GanttChart';
+import { isPlannerStage } from '@/lib/storage';
 
 interface PlannerTabProps {
   tasks: Task[];
@@ -73,7 +73,7 @@ export const PlannerTab: React.FC<PlannerTabProps> = ({
   onDeleteTask,
   onToggleTaskStatus,
 }) => {
-  const [viewMode, setViewMode] = useState<'kanban' | 'agenda' | 'gantt'>('kanban');
+  const [viewMode, setViewMode] = useState<'kanban' | 'agenda'>('kanban');
   const [assigneeFilter, setAssigneeFilter] = useState<string>('all');
   const [projectFilter, setProjectFilter] = useState<string>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
@@ -83,8 +83,11 @@ export const PlannerTab: React.FC<PlannerTabProps> = ({
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [activeTaskForEdit, setActiveTaskForEdit] = useState<Task | undefined>(undefined);
 
+  // Operational tasks only (strictly no planner/schedule stages in Tasks)
+  const operationalTasks = tasks.filter(t => !isPlannerStage(t));
+
   // Filter tasks
-  const filteredTasks = tasks.filter((task) => {
+  const filteredTasks = operationalTasks.filter((task) => {
     // Search
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -217,18 +220,6 @@ export const PlannerTab: React.FC<PlannerTabProps> = ({
             >
               <CalendarIcon className="w-3.5 h-3.5" />
               <span>По срокам</span>
-            </button>
-
-            <button
-              onClick={() => setViewMode('gantt')}
-              className={`px-3 py-1.5 rounded-xl transition-all flex items-center gap-1.5 ${
-                viewMode === 'gantt'
-                  ? 'bg-brand-500 text-slate-950 shadow-md font-extrabold'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              <CalendarRange className="w-3.5 h-3.5" />
-              <span>Диаграмма Ганта</span>
             </button>
           </div>
 
@@ -639,26 +630,11 @@ export const PlannerTab: React.FC<PlannerTabProps> = ({
         </div>
       )}
 
-      {/* VIEW 3: GANTT CHART */}
-      {viewMode === 'gantt' && (
-        <GanttChart
-          tasks={tasks}
-          projects={projects}
-          users={users}
-          currentUserId={currentUserId}
-          onSaveTask={onSaveTask}
-          onSaveTasksBatch={onSaveTasksBatch}
-          onDeleteTask={onDeleteTask}
-          onToggleTaskStatus={onToggleTaskStatus}
-          initialProjectId={projectFilter !== 'all' && projectFilter !== 'none' ? projectFilter : undefined}
-        />
-      )}
-
       {/* Task Create / Edit Modal */}
       {isTaskModalOpen && (
         <TaskModal
           task={activeTaskForEdit}
-          allTasks={tasks}
+          allTasks={operationalTasks}
           projects={projects}
           users={users}
           currentUserId={currentUserId}

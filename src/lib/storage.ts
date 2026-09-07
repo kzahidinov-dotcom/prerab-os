@@ -24,6 +24,7 @@ const STORAGE_KEYS = {
   SETTINGS: 'prerab_settings_v1',
   TASKS: 'prerab_tasks_v1',
   SCHEDULE_TEMPLATES: 'prerab_schedule_templates_v1',
+  SCHEDULE_STAGES: 'prerab_schedule_stages_v1',
 };
 
 export const DEFAULT_COMPANY_SETTINGS: CompanySettings = {
@@ -165,6 +166,163 @@ export const DEFAULT_TASKS: Task[] = [
     updated_at: new Date().toISOString(),
   }
 ];
+
+export const DEFAULT_SCHEDULE_STAGES: Task[] = [
+  {
+    id: 'stg-jas-1',
+    title: 'Демонтаж покрытий, дверей и вынос мусора в машину',
+    description: 'Снятие плитки и ламината 57м² (12 ч), срезка железных коробок (1.5ч/дверь), демонтаж дверей (20мин)',
+    status: 'done',
+    priority: 'high',
+    category: 'construction',
+    assignee_id: 'usr-vanya',
+    assignee_name: 'Ваня',
+    project_id: 'prj-jaslovska',
+    project_title: 'Реновация объекта ул. Jaslovská',
+    start_date: new Date(Date.now() - 86400000 * 10).toISOString().split('T')[0],
+    due_date: new Date(Date.now() - 86400000 * 8).toISOString().split('T')[0],
+    duration_days: 2,
+    checklist: [],
+    created_by: 'Василич',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    completed_at: new Date().toISOString(),
+    is_stage: true,
+  },
+  {
+    id: 'stg-jas-2',
+    title: 'Черновая сантехника и монтаж инсталляции Geberit',
+    description: 'Разводка труб ГВС, ХВС и канализации (2 дня на 1 чел), Geberit (3ч)',
+    status: 'done',
+    priority: 'high',
+    category: 'construction',
+    assignee_id: 'usr-vanya',
+    assignee_name: 'Ваня',
+    project_id: 'prj-jaslovska',
+    project_title: 'Реновация объекта ул. Jaslovská',
+    start_date: new Date(Date.now() - 86400000 * 7).toISOString().split('T')[0],
+    due_date: new Date(Date.now() - 86400000 * 5).toISOString().split('T')[0],
+    duration_days: 2,
+    depends_on: ['stg-jas-1'],
+    checklist: [],
+    created_by: 'Василич',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    completed_at: new Date().toISOString(),
+    is_stage: true,
+  },
+  {
+    id: 'stg-jas-3',
+    title: 'Заливка самовыравнивающегося пола (Вылевной нивелир 40 мешков)',
+    description: 'Заливка 40 мешков нивелира бригадой из 2 человек за 1 рабочий день',
+    status: 'done',
+    priority: 'high',
+    category: 'construction',
+    assignee_id: 'usr-vanya',
+    assignee_name: 'Ваня',
+    project_id: 'prj-jaslovska',
+    project_title: 'Реновация объекта ул. Jaslovská',
+    start_date: new Date(Date.now() - 86400000 * 4).toISOString().split('T')[0],
+    due_date: new Date(Date.now() - 86400000 * 4).toISOString().split('T')[0],
+    duration_days: 1,
+    depends_on: ['stg-jas-2'],
+    checklist: [],
+    created_by: 'Василич',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    completed_at: new Date().toISOString(),
+    is_stage: true,
+  },
+  {
+    id: 'stg-jas-4',
+    title: 'Технологическая пауза: Высыхание нивелира (48ч)',
+    description: 'Сушка пола без сквозняков перед тяжелыми нагрузками',
+    status: 'done',
+    priority: 'medium',
+    category: 'construction',
+    assignee_id: 'usr-vanya',
+    assignee_name: 'Ваня',
+    project_id: 'prj-jaslovska',
+    project_title: 'Реновация объекта ул. Jaslovská',
+    start_date: new Date(Date.now() - 86400000 * 3).toISOString().split('T')[0],
+    due_date: new Date(Date.now() - 86400000 * 2).toISOString().split('T')[0],
+    duration_days: 2,
+    depends_on: ['stg-jas-3'],
+    checklist: [],
+    created_by: 'Василич',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    completed_at: new Date().toISOString(),
+    is_stage: true,
+  },
+  {
+    id: 'stg-jas-5',
+    title: 'Укладка плитки и керамогранита в санузле',
+    description: 'Облицовка плиткой 60х120, запилы под 45 градусов, затирка швов',
+    status: 'in_progress',
+    priority: 'high',
+    category: 'construction',
+    assignee_id: 'usr-boris',
+    assignee_name: 'Борис',
+    project_id: 'prj-jaslovska',
+    project_title: 'Реновация объекта ул. Jaslovská',
+    start_date: new Date(Date.now() - 86400000).toISOString().split('T')[0],
+    due_date: new Date(Date.now() + 86400000 * 4).toISOString().split('T')[0],
+    duration_days: 5,
+    depends_on: ['stg-jas-4'],
+    checklist: [],
+    created_by: 'Василич',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    is_stage: true,
+  },
+  {
+    id: 'stg-jas-6',
+    title: 'Чистовая сантехника на Geberit, электрика и сдача',
+    description: 'Подвесной унитаз, смесители, душевая перегородка, розетки, уборка и сдача',
+    status: 'todo',
+    priority: 'high',
+    category: 'construction',
+    assignee_id: 'usr-vanya',
+    assignee_name: 'Ваня',
+    project_id: 'prj-jaslovska',
+    project_title: 'Реновация объекта ул. Jaslovská',
+    start_date: new Date(Date.now() + 86400000 * 5).toISOString().split('T')[0],
+    due_date: new Date(Date.now() + 86400000 * 7).toISOString().split('T')[0],
+    duration_days: 3,
+    depends_on: ['stg-jas-5'],
+    checklist: [],
+    created_by: 'Василич',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    is_stage: true,
+  }
+];
+
+export const isPlannerStage = (t: Task): boolean => {
+  if (!t) return false;
+  if (t.is_stage) return true;
+  if (typeof t.id === 'string' && (t.id.startsWith('tsk-tmpl-') || t.id.startsWith('stg-'))) return true;
+  const stageKeywords = [
+    'Демонтаж покрытий',
+    'Черновая сантехника',
+    'Заливка самовыравнивающегося пола',
+    'Технологическая пауза',
+    'Штукатурка стен по маякам',
+    'Шпаклевка стен и потолков',
+    'Технологическая сушка шпаклевки',
+    'Укладка плитки и керамогранита',
+    'Чистовая покраска',
+    'Укладка напольных покрытий',
+    'Чистовая сантехника, электрика и сдача',
+    'Монтаж гипсокартонных коробов',
+    'Гидроизоляция санузла'
+  ];
+  if (typeof t.title === 'string' && stageKeywords.some(k => t.title.toLowerCase().includes(k.toLowerCase()))) {
+    return true;
+  }
+  return false;
+};
 
 export const DEFAULT_SCHEDULE_TEMPLATES: ScheduleTemplate[] = [
   {
@@ -499,30 +657,50 @@ class StorageManager {
     if (!this.getItem(STORAGE_KEYS.SETTINGS, null)) {
       this.setItem(STORAGE_KEYS.SETTINGS, DEFAULT_COMPANY_SETTINGS);
     }
+    // Initialize Schedule Stages if not set
+    if (!this.getItem(STORAGE_KEYS.SCHEDULE_STAGES, null)) {
+      this.setItem(STORAGE_KEYS.SCHEDULE_STAGES, DEFAULT_SCHEDULE_STAGES);
+    }
+    // Purge planner stages from tasks so Tasks & Kanban is completely clean
+    this.purgePlannerStagesFromTasks();
   }
 
-  // Tasks & Planner
+  // Tasks (Operational Tasks only - Kanban & To-do)
   public getTasks(): Task[] {
     const res = this.getItem<Task[]>(STORAGE_KEYS.TASKS, DEFAULT_TASKS);
     const list = Array.isArray(res) && res.length > 0 ? res : DEFAULT_TASKS;
-    return list.map(t => ({
-      ...t,
-      checklist: Array.isArray(t?.checklist) ? t.checklist : []
-    }));
+    return list
+      .filter(t => !isPlannerStage(t))
+      .map(t => ({
+        ...t,
+        checklist: Array.isArray(t?.checklist) ? t.checklist : []
+      }));
   }
+
   public saveTasks(tasks: Task[]): void {
-    const normalized = (tasks || []).map(t => ({
+    const cleanOnly = (tasks || []).filter(t => !isPlannerStage(t));
+    const normalized = cleanOnly.map(t => ({
       ...t,
       checklist: Array.isArray(t?.checklist) ? t.checklist : []
     }));
     this.setItem(STORAGE_KEYS.TASKS, normalized);
     this.syncTasksToCloud(normalized);
   }
+
   public createTask(task: Task): void {
+    if (isPlannerStage(task)) {
+      this.saveScheduleStage(task);
+      return;
+    }
     const tasks = this.getTasks();
     this.saveTasks([task, ...tasks]);
   }
+
   public updateTask(updated: Task): void {
+    if (isPlannerStage(updated)) {
+      this.saveScheduleStage(updated);
+      return;
+    }
     const tasks = this.getTasks();
     const index = tasks.findIndex(t => t.id === updated.id);
     if (index >= 0) {
@@ -532,11 +710,13 @@ class StorageManager {
       this.saveTasks([updated, ...tasks]);
     }
   }
+
   public deleteTask(taskId: string): void {
     const tasks = this.getTasks().filter(t => t.id !== taskId);
     this.saveTasks(tasks);
     this.deleteFromSupabase('tasks', taskId);
   }
+
   public toggleTaskStatus(taskId: string): void {
     const tasks = this.getTasks();
     const task = tasks.find(t => t.id === taskId);
@@ -555,14 +735,102 @@ class StorageManager {
 
   // Atomic batch save tasks (prevents loop overwrite / stale closure issues)
   public saveTasksBatch(newTasks: Task[]): void {
+    const cleanOnly = (newTasks || []).filter(t => !isPlannerStage(t));
     const current = this.getTasks();
     const taskMap = new Map<string, Task>();
-    // Keep existing
     current.forEach(t => taskMap.set(t.id, t));
-    // Upsert batch
-    newTasks.forEach(t => taskMap.set(t.id, t));
+    cleanOnly.forEach(t => taskMap.set(t.id, t));
     const merged = Array.from(taskMap.values());
     this.saveTasks(merged);
+  }
+
+  // Purge planner stages from tasks (keeps Tasks independent and clean)
+  public purgePlannerStagesFromTasks(): { purgedCount: number; cleanTasks: Task[] } {
+    const rawTasks = this.getItem<Task[]>(STORAGE_KEYS.TASKS, DEFAULT_TASKS);
+    const plannerStages = (rawTasks || []).filter(isPlannerStage);
+    const cleanTasks = (rawTasks || []).filter(t => !isPlannerStage(t));
+
+    if (plannerStages.length > 0) {
+      this.setItem(STORAGE_KEYS.TASKS, cleanTasks);
+      this.syncTasksToCloud(cleanTasks).catch(e => console.warn('Clean tasks sync error:', e));
+
+      // Move extracted stages into schedule stages if needed
+      const existingStages = this.getItem<Task[]>(STORAGE_KEYS.SCHEDULE_STAGES, []);
+      const stagesMap = new Map<string, Task>();
+      existingStages.forEach(s => stagesMap.set(s.id, s));
+      plannerStages.forEach(s => stagesMap.set(s.id, { ...s, is_stage: true }));
+      const merged = Array.from(stagesMap.values());
+      this.setItem(STORAGE_KEYS.SCHEDULE_STAGES, merged);
+      this.syncScheduleStagesToCloud(merged).catch(e => console.warn('Clean stages sync error:', e));
+    }
+    return { purgedCount: plannerStages.length, cleanTasks };
+  }
+
+  // -------------------------------------------------------------
+  // Schedule Stages (План-график объектов / Диаграмма Ганта)
+  // -------------------------------------------------------------
+  public getScheduleStages(): Task[] {
+    const res = this.getItem<Task[]>(STORAGE_KEYS.SCHEDULE_STAGES, DEFAULT_SCHEDULE_STAGES);
+    const list = Array.isArray(res) && res.length > 0 ? res : DEFAULT_SCHEDULE_STAGES;
+    return list.map(s => ({
+      ...s,
+      is_stage: true,
+      checklist: Array.isArray(s?.checklist) ? s.checklist : []
+    }));
+  }
+
+  public saveScheduleStages(stages: Task[]): void {
+    const normalized = (stages || []).map(s => ({
+      ...s,
+      is_stage: true,
+      checklist: Array.isArray(s?.checklist) ? s.checklist : []
+    }));
+    this.setItem(STORAGE_KEYS.SCHEDULE_STAGES, normalized);
+    this.syncScheduleStagesToCloud(normalized);
+  }
+
+  public saveScheduleStagesBatch(batch: Task[]): void {
+    const current = this.getScheduleStages();
+    const stageMap = new Map<string, Task>();
+    current.forEach(s => stageMap.set(s.id, s));
+    batch.forEach(s => stageMap.set(s.id, { ...s, is_stage: true }));
+    const merged = Array.from(stageMap.values());
+    this.saveScheduleStages(merged);
+  }
+
+  public saveScheduleStage(stage: Task): void {
+    const current = this.getScheduleStages();
+    const idx = current.findIndex(s => s.id === stage.id);
+    const marked = { ...stage, is_stage: true };
+    let updated: Task[];
+    if (idx >= 0) {
+      updated = [...current];
+      updated[idx] = marked;
+    } else {
+      updated = [marked, ...current];
+    }
+    this.saveScheduleStages(updated);
+  }
+
+  public deleteScheduleStage(stageId: string): void {
+    const current = this.getScheduleStages().filter(s => s.id !== stageId);
+    this.saveScheduleStages(current);
+  }
+
+  public toggleScheduleStageStatus(stageId: string): void {
+    const stages = this.getScheduleStages();
+    const stage = stages.find(s => s.id === stageId);
+    if (stage) {
+      if (stage.status === 'done') {
+        stage.status = 'in_progress';
+        stage.completed_at = undefined;
+      } else {
+        stage.status = 'done';
+        stage.completed_at = new Date().toISOString();
+      }
+      stage.updated_at = new Date().toISOString();
+      this.saveScheduleStages([...stages]);
+    }
   }
 
   // Schedule Templates (Vasilich Norms & Custom Templates)
@@ -909,6 +1177,66 @@ class StorageManager {
     }
   }
 
+  // Schedule Stages Cloud Sync (План-график / Диаграмма Ганта)
+  public async syncScheduleStagesToCloud(stages: Task[]): Promise<void> {
+    try {
+      const sb = getSupabaseClient();
+      if (!sb) return;
+
+      const stagesDoc = {
+        id: 'bgt-system-schedule-stages-cloud',
+        project_id: null,
+        title: 'Cloud Schedule Stages Storage (Gantt)',
+        items: stages,
+        total_labor_cost: 0,
+        total_material_cost: 0,
+        total_cost: 0,
+        total_client_price: 0,
+        vat_rate: 23,
+        vat_amount: 0,
+        total_with_vat: 0,
+        margin_amount: 0,
+        margin_percent: 0,
+        is_reverse_charge: false,
+        status: 'approved',
+        updated_at: new Date().toISOString()
+      };
+      await sb.from('budgets').upsert([stagesDoc], { onConflict: 'id' });
+
+      this.broadcastCloudChange('schedule_stages', {
+        title: 'План-график объектов',
+        action: 'Обновление этапов',
+        description: 'Обновлены этапы строительства в плане-графике'
+      });
+    } catch (e) {
+      console.warn('Schedule stages cloud sync error:', e);
+    }
+  }
+
+  public async pullScheduleStagesFromCloud(): Promise<Task[] | null> {
+    try {
+      const sb = getSupabaseClient();
+      if (!sb) return null;
+
+      const { data: bData, error: bErr } = await sb
+        .from('budgets')
+        .select('*')
+        .eq('id', 'bgt-system-schedule-stages-cloud')
+        .single();
+      
+      if (!bErr && bData && Array.isArray(bData.items) && bData.items.length > 0) {
+        return bData.items.map((s: any) => ({
+          ...s,
+          is_stage: true,
+          checklist: Array.isArray(s?.checklist) ? s.checklist : []
+        })) as Task[];
+      }
+      return null;
+    } catch (e) {
+      return null;
+    }
+  }
+
   // Clean data foreign keys so Postgres never throws foreign key errors
   private sanitizeForSupabase(table: string, data: any[]): any[] {
     return data.map(item => {
@@ -992,7 +1320,7 @@ class StorageManager {
     if (!sb) return false;
 
     try {
-      const [cRes, pRes, bRes, eRes, iRes, wRes, wlRes, cloudTasks, cloudTemplates] = await Promise.all([
+      const [cRes, pRes, bRes, eRes, iRes, wRes, wlRes, cloudTasks, cloudTemplates, cloudStages] = await Promise.all([
         sb.from('clients').select('*').range(0, 9999),
         sb.from('projects').select('*').range(0, 9999),
         sb.from('budgets').select('*').range(0, 9999),
@@ -1002,6 +1330,7 @@ class StorageManager {
         sb.from('work_logs').select('*').range(0, 9999),
         this.pullTasksFromCloud(),
         this.pullScheduleTemplatesFromCloud(),
+        this.pullScheduleStagesFromCloud(),
       ]);
 
       let cloudSettings: CompanySettings | null = null;
@@ -1013,7 +1342,11 @@ class StorageManager {
             if (b.items && b.items[0]) {
               cloudSettings = { ...DEFAULT_COMPANY_SETTINGS, ...b.items[0] };
             }
-          } else if (b.id !== 'bgt-system-tasks-cloud' && b.id !== 'bgt-system-schedule-templates-cloud') {
+          } else if (
+            b.id !== 'bgt-system-tasks-cloud' && 
+            b.id !== 'bgt-system-schedule-templates-cloud' &&
+            b.id !== 'bgt-system-schedule-stages-cloud'
+          ) {
             realBudgets.push(b);
           }
         });
@@ -1044,10 +1377,15 @@ class StorageManager {
         this.setItem(STORAGE_KEYS.WORK_LOGS, cleanLogs as WorkLog[]);
       }
       if (cloudTasks && cloudTasks.length > 0) {
-        this.setItem(STORAGE_KEYS.TASKS, cloudTasks);
+        // Sanitize: ensure no planner stages ever infiltrate tasks
+        const cleanCloudTasks = cloudTasks.filter(t => !isPlannerStage(t));
+        this.setItem(STORAGE_KEYS.TASKS, cleanCloudTasks);
       }
       if (cloudTemplates && cloudTemplates.length > 0) {
         this.setItem(STORAGE_KEYS.SCHEDULE_TEMPLATES, cloudTemplates);
+      }
+      if (cloudStages && cloudStages.length > 0) {
+        this.setItem(STORAGE_KEYS.SCHEDULE_STAGES, cloudStages);
       }
       if (cloudSettings) {
         this.setItem(STORAGE_KEYS.SETTINGS, cloudSettings);
@@ -1086,6 +1424,7 @@ class StorageManager {
       const workLogs = this.getWorkLogs();
       const tasks = this.getTasks();
       const templates = this.getScheduleTemplates();
+      const stages = this.getScheduleStages();
 
       const promises = [];
       if (clients.length > 0) promises.push(sb.from('clients').upsert(this.sanitizeForSupabase('clients', clients), { onConflict: 'id' }));
@@ -1097,6 +1436,7 @@ class StorageManager {
       if (workLogs.length > 0) promises.push(sb.from('work_logs').upsert(this.sanitizeForSupabase('work_logs', workLogs), { onConflict: 'id' }));
       if (tasks.length > 0) promises.push(this.syncTasksToCloud(tasks));
       if (templates.length > 0) promises.push(this.syncScheduleTemplatesToCloud(templates));
+      if (stages.length > 0) promises.push(this.syncScheduleStagesToCloud(stages));
 
       await Promise.all(promises);
 
@@ -1109,7 +1449,7 @@ class StorageManager {
   // Full Database Backup Export (JSON)
   public exportFullBackup(): string {
     const backup = {
-      version: '1.1.0',
+      version: '1.2.0',
       exported_at: new Date().toISOString(),
       company: this.getSettings().name,
       data: {
@@ -1123,6 +1463,7 @@ class StorageManager {
         settings: this.getSettings(),
         tasks: this.getTasks(),
         schedule_templates: this.getScheduleTemplates(),
+        schedule_stages: this.getScheduleStages(),
       }
     };
     return JSON.stringify(backup, null, 2);
@@ -1144,6 +1485,7 @@ class StorageManager {
       if (parsed.data.settings) this.saveSettings(parsed.data.settings);
       if (parsed.data.tasks) this.saveTasks(parsed.data.tasks);
       if (parsed.data.schedule_templates) this.saveScheduleTemplates(parsed.data.schedule_templates);
+      if (parsed.data.schedule_stages) this.saveScheduleStages(parsed.data.schedule_stages);
       
       return true;
     } catch (e) {
@@ -1165,6 +1507,7 @@ class StorageManager {
     this.setItem(STORAGE_KEYS.WORK_LOGS, []);
     this.setItem(STORAGE_KEYS.TASKS, []);
     this.setItem(STORAGE_KEYS.SCHEDULE_TEMPLATES, DEFAULT_SCHEDULE_TEMPLATES);
+    this.setItem(STORAGE_KEYS.SCHEDULE_STAGES, DEFAULT_SCHEDULE_STAGES);
   }
 }
 
