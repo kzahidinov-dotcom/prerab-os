@@ -1,0 +1,89 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: #f8fafc;
+    --foreground: #0f172a;
+    --radius: 0.625rem;
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #c59b35;
+}
+
+/* Luxury PRERAB Gold Text and Borders */
+.gold-gradient-text {
+  background: linear-gradient(135deg, #e5c378 0%, #c59b35 50%, #9e7422 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.gold-gradient-bg {
+  background: linear-gradient(135deg, #d5ae4c 0%, #c59b35 50%, #ad8029 100%);
+}
+
+.gold-border-glow {
+  border-color: rgba(197, 155, 53, 0.4);
+  box-shadow: 0 0 15px rgba(197, 155, 53, 0.15);
+}
+
+/* System-wide Security Watermark overlay */
+.security-watermark-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.025;
+  background-image: repeating-linear-gradient(
+    -45deg,
+    transparent,
+    transparent 150px,
+    rgba(197, 155, 53, 0.8) 150px,
+    rgba(197, 155, 53, 0.8) 152px
+  );
+}
+
+.security-watermark-stamp {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  pointer-events: none;
+  z-index: 40;
+  opacity: 0.15;
+  user-select: none;
+}
+
+/* Print styles for invoices */
+@media print {
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .security-watermark-overlay {
+    opacity: 0.04 !important;
+  }
+}
