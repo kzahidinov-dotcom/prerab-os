@@ -4,22 +4,47 @@
 
 @layer base {
   :root {
-    --background: #f8fafc;
+    --background: #f7f8fa;
     --foreground: #0f172a;
-    --radius: 0.625rem;
+    --radius: 1rem;
+  }
+
+  html {
+    scroll-behavior: smooth;
   }
 
   body {
     background-color: var(--background);
     color: var(--foreground);
-    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11", "tnum";
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Tabular, evenly-spaced digits everywhere money or counts appear */
+  .tnum,
+  .font-display {
+    font-variant-numeric: tabular-nums;
+  }
+
+  ::selection {
+    background-color: theme('colors.brand.500');
+    color: white;
+  }
+
+  /* Calmer, more deliberate focus ring across the app */
+  :focus-visible {
+    outline: 2px solid theme('colors.brand.400');
+    outline-offset: 2px;
+    border-radius: 4px;
   }
 }
 
 /* Custom Scrollbars */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 7px;
+  height: 7px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
@@ -27,16 +52,62 @@
 ::-webkit-scrollbar-thumb {
   background: #cbd5e1;
   border-radius: 9999px;
+  border: 1.5px solid transparent;
+  background-clip: padding-box;
 }
 ::-webkit-scrollbar-thumb:hover {
   background: #c59b35;
+  background-clip: padding-box;
+}
+
+@layer components {
+  /* Standard elevated surface used across dashboard cards, panels & lists */
+  .surface {
+    @apply bg-white rounded-2xl border border-slate-200/80 shadow-card;
+  }
+
+  .surface-interactive {
+    @apply surface transition-all duration-200 hover:shadow-card-hover hover:border-slate-300/80;
+  }
+
+  /* Dark "vault" surface used for banners, sidebar and login chrome */
+  .surface-dark {
+    @apply bg-gradient-to-b from-slate-900 to-slate-950 border border-white/5 text-white;
+  }
+
+  /* KPI / stat tile with a colored accent rail on the left edge */
+  .stat-tile {
+    @apply relative surface-interactive p-5 overflow-hidden;
+  }
+
+  .stat-tile::before {
+    content: '';
+    @apply absolute left-0 top-0 bottom-0 w-[3px] rounded-l-2xl bg-current opacity-70;
+  }
+
+  .section-heading {
+    @apply text-[13px] font-extrabold uppercase tracking-wider text-slate-500;
+  }
+
+  .badge {
+    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-slate-950 bg-gradient-to-b from-brand-400 to-brand-500 hover:from-brand-300 hover:to-brand-400 shadow-gold transition-all active:scale-[0.98];
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 shadow-2xs transition-all active:scale-[0.98];
+  }
 }
 
 /* Luxury PRERAB Gold Text and Borders */
 .gold-gradient-text {
-  background: linear-gradient(135deg, #e5c378 0%, #c59b35 50%, #9e7422 100%);
+  background: linear-gradient(135deg, #f0d999 0%, #c59b35 45%, #8a5f23 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .gold-gradient-bg {
@@ -46,6 +117,16 @@
 .gold-border-glow {
   border-color: rgba(197, 155, 53, 0.4);
   box-shadow: 0 0 15px rgba(197, 155, 53, 0.15);
+}
+
+/* Soft radial mesh used behind dark hero/banner surfaces */
+.mesh-glow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(600px circle at 15% 20%, rgba(197, 155, 53, 0.16), transparent 60%),
+    radial-gradient(500px circle at 85% 100%, rgba(56, 132, 255, 0.10), transparent 55%);
 }
 
 /* System-wide Security Watermark overlay */

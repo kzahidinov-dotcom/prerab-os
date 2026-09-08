@@ -372,7 +372,7 @@ export const PlannerTab: React.FC<PlannerTabProps> = ({
                       <div
                         key={task.id}
                         onClick={() => handleOpenEditTask(task)}
-                        className="bg-white rounded-2xl p-4 border border-slate-200/90 shadow-sm hover:shadow-md hover:border-brand-500/50 transition-all cursor-pointer space-y-3 group"
+                        className="surface-interactive p-4 hover:border-brand-500/50 cursor-pointer space-y-3 group"
                       >
                         {/* Top Badges */}
                         <div className="flex items-center justify-between gap-1.5 flex-wrap">

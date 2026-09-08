@@ -88,42 +88,45 @@ export const Navbar: React.FC<NavbarProps> = ({
   };
 
   return (
-    <header className="h-16 bg-white border-b border-slate-200 px-6 flex items-center justify-between shrink-0 shadow-sm">
+    <header className="h-16 bg-white/85 backdrop-blur-md border-b border-slate-200/80 px-6 flex items-center justify-between shrink-0 shadow-sm sticky top-0 z-30">
       {/* Title & Path */}
-      <div className="flex items-center gap-3">
-        <div className="w-8 h-8 rounded-lg bg-slate-950 p-1 border border-brand-500/30 flex items-center justify-center shadow-sm">
+      <div className="flex items-center gap-3 min-w-0 flex-1">
+        <div className="w-8 h-8 rounded-lg bg-slate-950 p-1 border border-brand-500/30 flex items-center justify-center shadow-sm shrink-0">
           <img src="/prerab-logo.png" alt="PRERAB" className="max-h-full max-w-full object-contain" />
         </div>
-        <div>
-          <h1 className="text-base font-bold text-slate-800 tracking-tight flex items-center gap-2">
+        <div className="min-w-0">
+          <h1 className="text-[15px] font-bold text-slate-800 tracking-tight flex items-center gap-2 truncate">
             <span>{getTabTitle(activeTab)}</span>
           </h1>
-          <p className="text-xs text-slate-500">
+          <p className="text-[11px] text-slate-500 font-medium truncate hidden sm:block">
             Prerab s.r.o. &middot; Братислава &middot; Словакия
           </p>
         </div>
       </div>
 
       {/* Center Search */}
-      <div className="hidden md:flex items-center relative w-72">
-        <Search className="w-4 h-4 text-slate-400 absolute left-3 pointer-events-none" />
+      <div className="hidden md:flex items-center relative w-48 lg:w-64 xl:w-72 shrink-0 mx-3">
+        <Search className="w-4 h-4 text-slate-400 absolute left-3.5 pointer-events-none" />
         <input
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder="Поиск объектов, клиентов, чеков..."
-          className="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:bg-white transition-all"
+          className="w-full pl-9 pr-3 py-2 text-xs bg-slate-100/80 border border-transparent rounded-full text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-400 focus:bg-white focus:border-slate-200 transition-all"
         />
       </div>
 
       {/* Action Buttons */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 shrink-0">
         {/* Live Cloud Status */}
         <div
           title="Единая облачная база данных активна в реальном времени между Керимом и Ваней"
-          className="hidden lg:flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold text-sky-800 bg-sky-50 border border-sky-200 rounded-lg shadow-2xs"
+          className="hidden 2xl:flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold text-sky-800 bg-sky-50 border border-sky-200 rounded-full whitespace-nowrap shrink-0"
         >
-          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span className="relative flex w-2 h-2 shrink-0">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+          </span>
           <span>Единое облако</span>
         </div>
 
@@ -132,9 +135,9 @@ export const Navbar: React.FC<NavbarProps> = ({
           <button
             onClick={onOpenTeamReport}
             title="Сформировать сводный отчет для команды (для планерки и бригад)"
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-brand-800 bg-brand-50 hover:bg-brand-100 rounded-lg transition-colors border border-brand-200/90 shadow-2xs"
+            className="hidden xl:flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-brand-800 bg-brand-50 hover:bg-brand-100 rounded-lg transition-colors border border-brand-200/90 whitespace-nowrap shrink-0"
           >
-            <ClipboardList className="w-3.5 h-3.5 text-brand-600" />
+            <ClipboardList className="w-3.5 h-3.5 text-brand-600 shrink-0" />
             <span>Отчет для команды</span>
           </button>
         )}
@@ -143,36 +146,36 @@ export const Navbar: React.FC<NavbarProps> = ({
         <button
           onClick={onSyncGoogleSheets}
           title="Синхронизировать данные из Google Таблиц / Google Форм"
-          className="hidden md:flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors border border-emerald-200"
+          className="hidden md:flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors border border-emerald-200 whitespace-nowrap shrink-0"
         >
-          <Sparkles className="w-3.5 h-3.5 text-emerald-600 animate-pulse" />
-          <span>Google Таблица</span>
+          <Sparkles className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+          <span className="hidden 2xl:inline">Google Таблица</span>
         </button>
 
         {/* Fast Backup Button */}
         <button
           onClick={handleQuickBackup}
           title="Быстрый бэкап базы данных на компьютер"
-          className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors border border-slate-200"
+          className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors border border-slate-200 whitespace-nowrap shrink-0"
         >
           {backupSuccess ? (
             <>
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
               <span className="text-emerald-600 font-semibold">Сохранено!</span>
             </>
           ) : (
             <>
-              <Download className="w-3.5 h-3.5 text-slate-500" />
-              <span>Скачать бэкап</span>
+              <Download className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+              <span className="hidden 2xl:inline">Скачать бэкап</span>
             </>
           )}
         </button>
 
         {/* Quick Add Dropdown */}
-        <div className="relative">
+        <div className="relative shrink-0">
           <button
             onClick={() => setDropdownOpen(!dropdownOpen)}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-brand-500 hover:bg-brand-600 text-white rounded-lg text-xs font-semibold shadow-sm transition-all hover:shadow"
+            className="btn-primary py-2 whitespace-nowrap"
           >
             <Plus className="w-4 h-4" />
             <span>Создать</span>
@@ -185,7 +188,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 className="fixed inset-0 z-40"
                 onClick={() => setDropdownOpen(false)}
               />
-              <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100">
+              <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-card-hover border border-slate-200 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100">
                 <button
                   onClick={() => {
                     setDropdownOpen(false);
@@ -256,7 +259,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         {/* User Profile Badge & Switcher */}
         {currentUser && (
-          <div className="flex items-center gap-2 pl-3 border-l border-slate-200">
+          <div className="flex items-center gap-2 pl-3 border-l border-slate-200 shrink-0">
             <button
               onClick={onSwitchUser}
               title="Нажмите для смены профиля сотрудника"

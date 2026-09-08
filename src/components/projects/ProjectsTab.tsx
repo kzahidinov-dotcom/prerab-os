@@ -172,7 +172,7 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
             <div
               key={project.id}
               onClick={() => onSelectProject(project.id)}
-              className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm hover:shadow-md hover:border-brand-300 transition-all cursor-pointer flex flex-col justify-between group relative overflow-hidden"
+              className="surface-interactive p-5 hover:border-brand-300 cursor-pointer flex flex-col justify-between group relative overflow-hidden"
             >
               <div>
                 {/* Header */}

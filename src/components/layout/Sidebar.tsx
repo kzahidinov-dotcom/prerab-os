@@ -120,23 +120,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
   ];
 
   return (
-    <aside className="w-64 bg-slate-950 text-slate-300 flex flex-col shrink-0 min-h-screen border-r border-slate-850 select-none relative z-20">
+    <aside className="w-64 bg-slate-950 text-slate-300 flex flex-col shrink-0 min-h-screen border-r border-white/5 select-none relative z-20">
       {/* Brand Logo Header */}
-      <div className="p-5 border-b border-slate-850/80 bg-gradient-to-b from-slate-900 to-slate-950">
-        <div className="flex flex-col items-center justify-center text-center">
-          <div className="w-full max-w-[200px] h-14 relative flex items-center justify-center mb-1">
+      <div className="p-5 border-b border-white/5 bg-gradient-to-b from-slate-900 to-slate-950 relative overflow-hidden">
+        <div className="mesh-glow opacity-60" />
+        <div className="flex flex-col items-center justify-center text-center relative">
+          <div className="w-full max-w-[176px] h-14 relative flex items-center justify-center mb-2 rounded-2xl bg-white/[0.03] ring-1 ring-white/5 py-2">
             {/* Official PRERAB Logo */}
-            <img 
-              src="/prerab-logo.png" 
-              alt="PRERAB Logo" 
-              className="max-h-full max-w-full object-contain filter drop-shadow-[0_2px_8px_rgba(197,155,53,0.3)]" 
+            <img
+              src="/prerab-logo.png"
+              alt="PRERAB Logo"
+              className="max-h-full max-w-[85%] object-contain filter drop-shadow-[0_2px_10px_rgba(197,155,53,0.35)]"
             />
           </div>
-          <div className="flex items-center gap-1.5 mt-1">
-            <span className="text-[10px] uppercase font-extrabold tracking-widest text-slate-400">
-              INTERNAL OS
+          <div className="flex items-center gap-1.5 mt-0.5">
+            <span className="text-[10px] font-display font-bold uppercase tracking-[0.2em] text-slate-400">
+              Internal OS
             </span>
-            <span className="text-[9px] font-black px-1.5 py-0.2 rounded bg-brand-500/20 text-brand-300 border border-brand-500/30">
+            <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-brand-500/15 text-brand-300 border border-brand-500/30">
               v1.0
             </span>
           </div>
@@ -144,10 +145,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* Navigation List */}
-      <nav className="flex-1 px-3 py-4 space-y-1.5 overflow-y-auto">
-        <div className="px-3 pb-2 text-[10px] font-extrabold uppercase tracking-wider text-slate-400 flex items-center justify-between">
+      <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+        <div className="px-3 pb-2.5 text-[10px] font-extrabold uppercase tracking-wider text-slate-500 flex items-center justify-between">
           <span>Разделы управления</span>
-          <span className="flex items-center gap-1 text-[9px] font-extrabold text-emerald-400 bg-emerald-950/60 border border-emerald-800/60 px-2 py-0.5 rounded-full shadow-xs">
+          <span className="flex items-center gap-1 text-[9px] font-extrabold text-emerald-400 bg-emerald-950/50 border border-emerald-800/50 px-2 py-0.5 rounded-full">
             <ShieldCheck className="w-3 h-3 text-emerald-400" />
             <span>Администратор</span>
           </span>
@@ -163,12 +164,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
               role="button"
               tabIndex={0}
               onClick={() => setActiveTab(item.id)}
-              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-all group cursor-pointer select-none ${
+              className={`relative w-full flex items-center justify-between pl-3.5 pr-3 py-2.5 rounded-xl text-[13px] transition-all duration-150 group cursor-pointer select-none ${
                 isActive
-                  ? 'bg-gradient-to-r from-brand-500 to-brand-600 text-slate-950 shadow-lg shadow-brand-500/20 font-bold'
-                  : 'text-slate-300 hover:bg-slate-900 hover:text-brand-300'
+                  ? 'bg-gradient-to-r from-brand-500 to-brand-600 text-slate-950 shadow-lg shadow-brand-500/25 font-bold'
+                  : 'text-slate-300 font-medium hover:bg-white/[0.04] hover:text-brand-300'
               }`}
             >
+              {!isActive && (
+                <span className="absolute left-0 top-1/2 -translate-y-1/2 h-4 w-[3px] rounded-full bg-brand-400 opacity-0 group-hover:opacity-60 transition-opacity" />
+              )}
               <div className="flex items-center gap-3">
                 <Icon
                   className={`w-4 h-4 transition-transform group-hover:scale-110 ${
@@ -235,14 +239,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </nav>
 
       {/* Security Seal Footer */}
-      <div className="p-4 border-t border-slate-850 bg-slate-950/60 text-xs">
+      <div className="p-4 border-t border-white/5 bg-slate-950/60 text-xs">
         <div className="flex items-center gap-2 text-brand-400 mb-1.5">
           <ShieldCheck className="w-4 h-4 shrink-0 text-brand-400" />
           <span className="font-bold text-[11px] tracking-tight">Защищено водяным знаком</span>
         </div>
-        <div className="text-[11px] text-slate-400 leading-relaxed">
+        <div className="text-[11px] text-slate-500 leading-relaxed">
           Prerab s.r.o. &middot; Bratislava<br />
-          <span className="text-slate-400 font-medium">Конфиденциальная система</span>
+          <span className="text-slate-500 font-medium">Конфиденциальная система</span>
         </div>
       </div>
     </aside>
