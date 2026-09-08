@@ -146,10 +146,10 @@ export const Navbar: React.FC<NavbarProps> = ({
         <button
           onClick={onSyncGoogleSheets}
           title="Синхронизировать данные из Google Таблиц / Google Форм"
-          className="hidden md:flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors border border-emerald-200 whitespace-nowrap shrink-0"
+          className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors border border-emerald-200 whitespace-nowrap shrink-0"
         >
           <Sparkles className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-          <span className="hidden 2xl:inline">Google Таблица</span>
+          <span className="hidden sm:inline">Google Таблица</span>
         </button>
 
         {/* Fast Backup Button */}
