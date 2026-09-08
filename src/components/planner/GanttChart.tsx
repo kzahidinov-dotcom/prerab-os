@@ -249,7 +249,7 @@ export const GanttChart: React.FC<GanttChartProps> = ({
     <div className="space-y-4">
       
       {/* Top Action Bar & Filters */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm space-y-3">
+      <div className="surface p-4 space-y-3">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
           
           {/* Title & Stats */}
@@ -451,7 +451,7 @@ export const GanttChart: React.FC<GanttChartProps> = ({
       )}
 
       {/* Master Gantt Chart Container */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+      <div className="surface overflow-hidden flex flex-col">
         
         <div className="overflow-x-auto">
           <div className="min-w-[1100px]">

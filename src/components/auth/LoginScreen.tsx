@@ -62,6 +62,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
       {/* Subtle Luxury Gold Background Glows */}
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-96 h-96 bg-brand-500/10 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-10 right-10 w-72 h-72 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute inset-0 bg-grain mix-blend-overlay opacity-[0.035] pointer-events-none" />
 
       <div className="max-w-md w-full relative z-10 space-y-6">
         {/* Brand Header */}
@@ -70,7 +71,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
             <img src="/prerab-logo.png" alt="PRERAB" className="max-h-full max-w-full object-contain" />
           </div>
           <div>
-            <h1 className="text-2xl font-black tracking-tight text-white flex items-center justify-center gap-2">
+            <h1 className="text-2xl font-display font-bold tracking-tight text-white flex items-center justify-center gap-2">
               <span>PRERAB OS</span>
             </h1>
             <p className="text-xs text-brand-400 font-semibold tracking-wider uppercase mt-1">
@@ -81,8 +82,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
 
         {/* STEP 1: USER LIST SELECTION */}
         {!selectedUser ? (
-          <div className="bg-slate-900/90 backdrop-blur-md rounded-3xl border border-slate-800 p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div className="bg-slate-900/90 backdrop-blur-md rounded-3xl border border-white/5 p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-white/5 pb-3">
               <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
                 Выберите свой профиль:
               </span>
@@ -96,7 +97,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                   <button
                     key={u.id}
                     onClick={() => handleUserSelect(u)}
-                    className="w-full p-3.5 rounded-2xl bg-slate-850 hover:bg-slate-800 border border-slate-750 hover:border-brand-500/50 transition-all flex items-center justify-between group text-left"
+                    className="w-full p-3.5 rounded-2xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/5 hover:border-brand-500/50 transition-all flex items-center justify-between group text-left"
                   >
                     <div className="flex items-center gap-3.5">
                       <div className={`w-10 h-10 rounded-xl ${u.avatar_color || 'bg-brand-500'} text-white font-black text-sm flex items-center justify-center shadow-md`}>
@@ -124,7 +125,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
           </div>
         ) : (
           /* STEP 2: CREDENTIALS INPUT (PASSWORD OR PIN) */
-          <div className="bg-slate-900/90 backdrop-blur-md rounded-3xl border border-slate-800 p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in duration-200">
+          <div className="bg-slate-900/90 backdrop-blur-md rounded-3xl border border-white/5 p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in duration-200">
             <div className="flex items-center justify-between">
               <button
                 onClick={() => setSelectedUser(null)}
@@ -141,7 +142,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
               <div className={`w-14 h-14 rounded-2xl ${selectedUser.avatar_color || 'bg-brand-500'} text-white font-black text-xl flex items-center justify-center mx-auto shadow-xl`}>
                 {selectedUser.name.substring(0, 1).toUpperCase()}
               </div>
-              <h2 className="text-lg font-black text-white">{selectedUser.name}</h2>
+              <h2 className="text-lg font-display font-bold text-white">{selectedUser.name}</h2>
               <p className="text-xs text-slate-400">
                 {selectedUser.role === 'admin' 
                   ? 'Введите пароль администратора:' 

@@ -144,7 +144,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
       </div>
 
       {/* CLOUD STORAGE (SUPABASE) CONFIGURATION */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-5">
+      <div className="surface p-6 space-y-5">
         <div className="flex items-center justify-between border-b border-slate-100 pb-4">
           <div>
             <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
@@ -228,7 +228,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
       </div>
 
       {/* SECTION: WEEKLY FRIDAY AUTO-BACKUP */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-4">
+      <div className="surface p-6 space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
           <div>
             <div className="flex items-center gap-2">
@@ -300,7 +300,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
       </div>
 
       {/* SECTION: SOUND & NOTIFICATIONS */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-4">
+      <div className="surface p-6 space-y-4">
         <div className="flex items-center justify-between border-b border-slate-100 pb-4">
           <div>
             <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
@@ -376,7 +376,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
       </div>
 
       {/* Company Requisites Form */}
-      <form onSubmit={handleSave} className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-6">
+      <form onSubmit={handleSave} className="surface p-6 space-y-6">
         <div className="flex items-center justify-between border-b border-slate-100 pb-4">
           <div>
             <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
