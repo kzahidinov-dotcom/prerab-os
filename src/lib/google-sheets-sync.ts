@@ -437,7 +437,12 @@ export async function syncFromGoogleSheets(customUrl?: string) {
         projectsMap[me.project_id].budget_actual_spent += (me.amount_without_vat || 0);
       }
     });
-    const allExpenses = [...manualExpenses, ...expenses];
+    const allExpenses = [...manualExpenses, ...expenses].sort((a, b) => {
+      const tA = new Date(a.date).getTime() || 0;
+      const tB = new Date(b.date).getTime() || 0;
+      if (tA !== tB) return tB - tA;
+      return (b.receipt_number || '').localeCompare(a.receipt_number || '');
+    });
 
     // Merge manual user invoices (which do not start with inv-g-) with Google Sheet invoices
     const manualInvoices = existingInvoices.filter(i => !i.id.startsWith('inv-g-'));
@@ -449,7 +454,12 @@ export async function syncFromGoogleSheets(customUrl?: string) {
         projectsMap[mi.project_id].invoiced_total += (mi.subtotal || mi.total_amount || 0);
       }
     });
-    const allInvoices = [...manualInvoices, ...invoices];
+    const allInvoices = [...manualInvoices, ...invoices].sort((a, b) => {
+      const tA = new Date(a.issue_date).getTime() || 0;
+      const tB = new Date(b.issue_date).getTime() || 0;
+      if (tA !== tB) return tB - tA;
+      return (b.invoice_number || '').localeCompare(a.invoice_number || '');
+    });
 
     const projectsList = Object.values(projectsMap);
     const clientsList = Object.values(clientsMap);

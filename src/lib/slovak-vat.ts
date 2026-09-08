@@ -74,3 +74,38 @@ export function formatPercent(value: number): string {
   return `${(Math.round((value + Number.EPSILON) * 10) / 10).toFixed(1)} %`;
 }
 
+/**
+ * Formats any date string into European/Slovak/Russian format DD.MM.YYYY (e.g. 08.09.2026)
+ */
+export function formatDateDmY(dateStr?: string | null): string {
+  if (!dateStr) return '-';
+  const clean = dateStr.trim();
+  if (!clean) return '-';
+
+  // Already DD.MM.YYYY
+  if (/^\d{2}\.\d{2}\.\d{4}$/.test(clean)) return clean;
+
+  // ISO YYYY-MM-DD or YYYY-MM-DDTHH:mm:ss
+  const isoPart = clean.split('T')[0];
+  const parts = isoPart.split('-');
+  if (parts.length === 3 && parts[0].length === 4) {
+    const year = parts[0];
+    const month = parts[1].padStart(2, '0');
+    const day = parts[2].padStart(2, '0');
+    return `${day}.${month}.${year}`;
+  }
+
+  // D.M.YYYY or DD.MM.YY
+  const dotParts = clean.split(' ')[0].split('.');
+  if (dotParts.length === 3) {
+    const day = dotParts[0].padStart(2, '0');
+    const month = dotParts[1].padStart(2, '0');
+    let year = dotParts[2];
+    if (year.length === 2) year = `20${year}`;
+    return `${day}.${month}.${year}`;
+  }
+
+  return clean;
+}
+
+

@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { Invoice, Project, Client, CompanySettings, InvoiceType } from '@/types';
-import { formatCurrency, SLOVAK_VAT_RATES, calculateVat } from '@/lib/slovak-vat';
+import { formatCurrency, SLOVAK_VAT_RATES, calculateVat, formatDateDmY } from '@/lib/slovak-vat';
 import { printInvoiceDocument } from '@/lib/pdf-generator';
 import { generatePaymentQrCode } from '@/lib/pay-by-square';
 import { 
@@ -46,22 +46,29 @@ export const InvoicesTab: React.FC<InvoicesTabProps> = ({
   const [qrModalInvoice, setQrModalInvoice] = useState<Invoice | null>(null);
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
 
-  const filteredInvoices = invoices.filter(inv => {
-    const client = clients.find(c => c.id === inv.client_id);
-    const project = projects.find(p => p.id === inv.project_id);
+  const filteredInvoices = invoices
+    .filter(inv => {
+      const client = clients.find(c => c.id === inv.client_id);
+      const project = projects.find(p => p.id === inv.project_id);
 
-    const matchesSearch = 
-      inv.invoice_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      inv.variable_symbol.includes(searchTerm) ||
-      (client?.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (client?.company_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (project?.title || '').toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesSearch = 
+        inv.invoice_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        inv.variable_symbol.includes(searchTerm) ||
+        (client?.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (client?.company_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (project?.title || '').toLowerCase().includes(searchTerm.toLowerCase());
 
-    const matchesType = typeFilter === 'all' ? true : inv.type === typeFilter;
-    const matchesStatus = statusFilter === 'all' ? true : inv.payment_status === statusFilter;
+      const matchesType = typeFilter === 'all' ? true : inv.type === typeFilter;
+      const matchesStatus = statusFilter === 'all' ? true : inv.payment_status === statusFilter;
 
-    return matchesSearch && matchesType && matchesStatus;
-  });
+      return matchesSearch && matchesType && matchesStatus;
+    })
+    .sort((a, b) => {
+      const tA = new Date(a.issue_date).getTime() || 0;
+      const tB = new Date(b.issue_date).getTime() || 0;
+      if (tA !== tB) return tB - tA;
+      return (b.invoice_number || '').localeCompare(a.invoice_number || '');
+    });
 
   const totalInvoiced = filteredInvoices.reduce((sum, i) => sum + i.total_amount, 0);
   const totalPaid = filteredInvoices
@@ -235,10 +242,10 @@ export const InvoicesTab: React.FC<InvoicesTabProps> = ({
                       <div className="font-bold text-slate-900">{client?.company_name || client?.name || 'Клиент'}</div>
                       <div className="text-slate-500 text-[11px] line-clamp-1">{project?.title || '-'}</div>
                     </td>
-                    <td className="p-3.5 text-[11px] text-slate-500">
-                      <div>Выставлен: {inv.issue_date}</div>
+                    <td className="p-3.5 text-[11px] text-slate-500 font-mono">
+                      <div>Выставлен: <span className="font-bold text-slate-800">{formatDateDmY(inv.issue_date)}</span></div>
                       <div className={`font-semibold ${isPaid ? 'text-slate-600' : 'text-rose-600 font-bold'}`}>
-                        Срок: {inv.due_date}
+                        Срок: {formatDateDmY(inv.due_date)}
                       </div>
                     </td>
                     <td className="p-3.5 font-mono text-slate-600 font-bold">

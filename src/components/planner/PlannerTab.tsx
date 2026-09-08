@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { Task, TaskPriority, TaskCategory, TaskStatus, Project, UserProfile } from '@/types';
-import { formatCurrency } from '@/lib/slovak-vat';
+import { formatCurrency, formatDateDmY } from '@/lib/slovak-vat';
 import { 
   CheckSquare, 
   Plus, 
@@ -148,24 +148,24 @@ export const PlannerTab: React.FC<PlannerTabProps> = ({
 
     if (isPast) {
       return (
-        <span className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-rose-100 text-rose-700 border border-rose-200">
+        <span className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-rose-100 text-rose-700 border border-rose-200 font-mono">
           <AlertTriangle className="w-3 h-3" />
-          <span>Просрочено ({dueDate})</span>
+          <span>Просрочено ({formatDateDmY(dueDate)})</span>
         </span>
       );
     }
     if (isToday) {
       return (
-        <span className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 border border-amber-300 animate-pulse">
+        <span className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 border border-amber-300 animate-pulse font-mono">
           <Clock className="w-3 h-3" />
-          <span>Сегодня</span>
+          <span>Сегодня ({formatDateDmY(dueDate)})</span>
         </span>
       );
     }
     return (
-      <span className="flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 border border-slate-200">
+      <span className="flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 border border-slate-200 font-mono">
         <CalendarIcon className="w-3 h-3" />
-        <span>{dueDate}</span>
+        <span>{formatDateDmY(dueDate)}</span>
       </span>
     );
   };

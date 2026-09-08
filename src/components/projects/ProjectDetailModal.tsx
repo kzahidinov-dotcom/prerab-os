@@ -12,7 +12,7 @@ import {
   CompanySettings,
   ProjectStatus 
 } from '@/types';
-import { formatCurrency, formatPercent } from '@/lib/slovak-vat';
+import { formatCurrency, formatPercent, formatDateDmY } from '@/lib/slovak-vat';
 import { printInvoiceDocument, printQuoteDocument } from '@/lib/pdf-generator';
 import { generatePaymentQrCode } from '@/lib/pay-by-square';
 import { PROJECT_STATUS_MAP } from './ProjectsTab';
@@ -142,8 +142,12 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
   };
 
   const projectBudgets = budgets.filter(b => b.project_id === project.id);
-  const projectExpenses = expenses.filter(e => e.project_id === project.id);
-  const projectInvoices = invoices.filter(i => i.project_id === project.id);
+  const projectExpenses = expenses
+    .filter(e => e.project_id === project.id)
+    .sort((a, b) => (new Date(b.date).getTime() || 0) - (new Date(a.date).getTime() || 0));
+  const projectInvoices = invoices
+    .filter(i => i.project_id === project.id)
+    .sort((a, b) => (new Date(b.issue_date).getTime() || 0) - (new Date(a.issue_date).getTime() || 0));
   const projectWorkLogs = workLogs.filter(w => w.project_id === project.id);
   const projectTasks = (tasks || []).filter(t => t.project_id === project.id);
 
@@ -503,7 +507,7 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
                   <tbody className="divide-y divide-slate-100 text-slate-700">
                     {projectExpenses.map((exp) => (
                       <tr key={exp.id} className="hover:bg-slate-50/60">
-                        <td className="p-3 text-slate-500 font-medium whitespace-nowrap">{exp.date}</td>
+                        <td className="p-3 text-slate-800 font-bold whitespace-nowrap font-mono">{formatDateDmY(exp.date)}</td>
                         <td className="p-3">
                           <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 text-slate-700">
                             {exp.category}
@@ -582,9 +586,9 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
                             {inv.type === 'proforma' ? 'Zálohová faktúra' : 'Faktúra'}
                           </span>
                         </td>
-                        <td className="p-3 text-slate-500 text-[11px]">
-                          <div>Выставлен: {inv.issue_date}</div>
-                          <div className="font-semibold text-slate-700">Срок: {inv.due_date}</div>
+                        <td className="p-3 text-slate-500 text-[11px] font-mono">
+                          <div>Выставлен: <span className="font-bold text-slate-800">{formatDateDmY(inv.issue_date)}</span></div>
+                          <div className="font-semibold text-slate-700">Срок: {formatDateDmY(inv.due_date)}</div>
                         </td>
                         <td className="p-3">
                           <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold ${

@@ -18,7 +18,7 @@ import {
   ChevronRight,
   User
 } from 'lucide-react';
-import { formatSlovakEur } from '@/lib/slovak-vat';
+import { formatSlovakEur, formatDateDmY } from '@/lib/slovak-vat';
 import { GOOGLE_DRIVE_ROOT_URL } from '@/lib/google-sheets-sync';
 
 export const PROJECT_STATUS_MAP: Record<string, { label: string; bg: string; text: string; border: string }> = {
@@ -233,8 +233,8 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
 
               {/* Bottom Actions */}
               <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-                <span className="text-[11px]">
-                  {project.deadline ? `Срок: ${project.deadline}` : 'Активный объект'}
+                <span className="text-[11px] font-mono">
+                  {project.deadline ? `Срок: ${formatDateDmY(project.deadline)}` : 'Активный объект'}
                 </span>
 
                 <span className="text-[11px] font-bold text-brand-600 group-hover:underline inline-flex items-center gap-1">

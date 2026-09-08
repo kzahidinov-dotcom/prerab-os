@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { Expense, Project, ExpenseCategory } from '@/types';
-import { formatCurrency, calculateVat, SLOVAK_VAT_RATES } from '@/lib/slovak-vat';
+import { formatCurrency, calculateVat, SLOVAK_VAT_RATES, formatDateDmY } from '@/lib/slovak-vat';
 import { 
   Receipt, 
   Plus, 
@@ -49,21 +49,33 @@ export const CostTrackingTab: React.FC<CostTrackingTabProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [projectFilter, setProjectFilter] = useState('all');
   const [categoryFilter, setCategoryFilter] = useState('all');
+  const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
   const [previewPhoto, setPreviewPhoto] = useState<string | null>(null);
 
-  const filteredExpenses = expenses.filter(e => {
-    const project = projects.find(p => p.id === e.project_id);
-    const matchesSearch = 
-      e.vendor.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      e.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (e.receipt_number || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (project?.title || '').toLowerCase().includes(searchTerm.toLowerCase());
+  const filteredExpenses = expenses
+    .filter(e => {
+      const project = projects.find(p => p.id === e.project_id);
+      const matchesSearch = 
+        e.vendor.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        e.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (e.receipt_number || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (project?.title || '').toLowerCase().includes(searchTerm.toLowerCase());
 
-    const matchesProj = projectFilter === 'all' ? true : e.project_id === projectFilter;
-    const matchesCat = categoryFilter === 'all' ? true : e.category === categoryFilter;
+      const matchesProj = projectFilter === 'all' ? true : e.project_id === projectFilter;
+      const matchesCat = categoryFilter === 'all' ? true : e.category === categoryFilter;
 
-    return matchesSearch && matchesProj && matchesCat;
-  });
+      return matchesSearch && matchesProj && matchesCat;
+    })
+    .sort((a, b) => {
+      const tA = new Date(a.date).getTime() || 0;
+      const tB = new Date(b.date).getTime() || 0;
+      if (tA !== tB) {
+        return sortOrder === 'desc' ? tB - tA : tA - tB;
+      }
+      return sortOrder === 'desc'
+        ? (b.receipt_number || '').localeCompare(a.receipt_number || '')
+        : (a.receipt_number || '').localeCompare(b.receipt_number || '');
+    });
 
   const totalAmount = filteredExpenses.reduce((sum, e) => sum + (e.amount_with_vat || e.amount_without_vat || 0), 0);
   const totalProjectCosts = filteredExpenses.filter(e => e.project_id).reduce((sum, e) => sum + (e.amount_with_vat || e.amount_without_vat || 0), 0);
@@ -180,7 +192,28 @@ export const CostTrackingTab: React.FC<CostTrackingTabProps> = ({
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
               <tr>
-                <th className="p-3.5">Дата</th>
+                <th 
+                  className="p-3.5 cursor-pointer hover:bg-slate-100 transition-colors select-none"
+                  onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
+                  title="Нажмите для смены сортировки по дате"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span>Дата</span>
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-brand-50 text-brand-700 border border-brand-200 inline-flex items-center gap-0.5">
+                      {sortOrder === 'desc' ? (
+                        <>
+                          <ArrowDown className="w-2.5 h-2.5 text-brand-600" />
+                          <span>Сначала новые</span>
+                        </>
+                      ) : (
+                        <>
+                          <ArrowUp className="w-2.5 h-2.5 text-brand-600" />
+                          <span>Сначала старые</span>
+                        </>
+                      )}
+                    </span>
+                  </div>
+                </th>
                 <th className="p-3.5">Объект</th>
                 <th className="p-3.5">Категория</th>
                 <th className="p-3.5">Поставщик / Описание</th>
@@ -197,8 +230,8 @@ export const CostTrackingTab: React.FC<CostTrackingTabProps> = ({
 
                 return (
                   <tr key={exp.id} className="hover:bg-slate-50/70 transition-colors">
-                    <td className="p-3.5 text-slate-500 font-medium whitespace-nowrap">
-                      {exp.date}
+                    <td className="p-3.5 text-slate-900 font-bold whitespace-nowrap font-mono text-xs">
+                      {formatDateDmY(exp.date)}
                     </td>
                     <td className="p-3.5">
                       <div className="font-bold text-slate-900">{project?.title || 'Общий расход'}</div>
