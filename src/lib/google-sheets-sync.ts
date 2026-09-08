@@ -13,7 +13,8 @@ export const ACTIVE_PROJECTS_NAMES = [
   'Jaslovska', 
   'Kpt rašu', 
   'Hergovic', 
-  'Bebravska'
+  'Bebravska',
+  'PlisnakB3'
 ];
 
 export function mapExpenseCategory(catRaw: string): ExpenseCategory {
@@ -80,6 +81,7 @@ const PROJECT_METADATA: Record<string, { title: string; client: string; address:
   'Kpt rašu': { title: 'Капремонт квартиры ул. Kpt. Rašu', client: 'Клиент Kpt. Rašu', address: 'Kpt. Nálepku / Rašu', city: 'Bratislava - Dúbravka' },
   'Hergovic': { title: 'Комплексный ремонт ул. Hergottova', client: 'Клиент Hergottova', address: 'Hergottova 6', city: 'Bratislava - Ružinov' },
   'Bebravska': { title: 'Ремонт объекта ул. Bebravská (Ожидание оплат)', client: 'Клиент Bebravská', address: 'Bebravská 12', city: 'Bratislava - Vrakuňa' },
+  'PlisnakB3': { title: 'Ремонт объекта PlisnakB3 (Babuškova 3)', client: 'Клиент PlisnakB3', address: 'Babuškova 3', city: 'Bratislava - Ružinov' },
   'Sibirska': { title: 'Ремонт квартиры ул. Sibírska', client: 'Клиент Sibírska', address: 'Sibírska 35', city: 'Bratislava - Nové Mesto' },
   'Lotysska': { title: 'Ремонт квартиры ул. Lotyšská', client: 'Клиент Lotyšská', address: 'Lotyšská 19', city: 'Bratislava - Podunajské Biskupice' },
   'Ozvoldik': { title: 'Ремонт объекта Ozvoldíková', client: 'Клиент Ozvoldíková', address: 'Ozvoldíková 3', city: 'Bratislava - Dúbravka' },
@@ -108,6 +110,7 @@ export function matchCanonicalProjectKey(rawProject: string): string {
   const norm = normalizeProjectKey(rawProject);
   if (!norm) return rawProject;
 
+  if (norm.includes('plis') || norm.includes('babuskov')) return 'PlisnakB3';
   if (norm.includes('herg')) return 'Hergovic';
   if (norm.includes('chem') || norm.includes('ruzchem')) return 'RuzChem';
   if (norm.includes('jaslov')) return 'Jaslovska';
@@ -143,8 +146,10 @@ export function getCanonicalClientId(rawProject: string): string {
 
 export async function syncFromGoogleSheets(customUrl?: string) {
   try {
-    const url = customUrl || DEFAULT_GOOGLE_SHEET_URL;
-    const res = await fetch(url);
+    const sep = (customUrl || DEFAULT_GOOGLE_SHEET_URL).includes('?') ? '&' : '?';
+    const cacheBuster = `${sep}_t=${Date.now()}`;
+    const url = (customUrl || DEFAULT_GOOGLE_SHEET_URL) + cacheBuster;
+    const res = await fetch(url, { cache: 'no-store' });
     if (!res.ok) {
       return { success: false, message: `Ошибка загрузки таблицы: ${res.statusText}` };
     }
@@ -172,6 +177,8 @@ export async function syncFromGoogleSheets(customUrl?: string) {
 
     // 2. Load all existing projects from storage so custom titles, addresses, statuses are NEVER lost
     existingProjects.forEach(p => {
+      // Filter out duplicate orphan IDs if present
+      if (p.id === 'prj-1788766664312' || p.id === 'prj-jana_stanislava' || p.id === 'prj-kpt_ra_u') return;
       projectsMap[p.id] = {
         ...p,
         budget_estimated: 0,
@@ -306,20 +313,33 @@ export async function syncFromGoogleSheets(customUrl?: string) {
       } else {
         // SPECIFIC PROJECT
         const projKey = matchCanonicalProjectKey(rawProject);
-        const projId = getCanonicalProjectId(rawProject);
-        const clientId = getCanonicalClientId(rawProject);
+        const defaultProjId = getCanonicalProjectId(rawProject);
+
+        // Match existing project by canonical ID, raw key, title, or address
+        const existingProject = existingProjects.find(p => 
+          p.id === defaultProjId ||
+          p.id === `prj-${normalizeProjectKey(rawProject)}` ||
+          normalizeProjectKey(p.id) === normalizeProjectKey(defaultProjId) ||
+          normalizeProjectKey(p.title) === normalizeProjectKey(projKey) ||
+          normalizeProjectKey(p.title) === normalizeProjectKey(rawProject) ||
+          (p.title && normalizeProjectKey(p.title).includes(normalizeProjectKey(projKey))) ||
+          (p.address && normalizeProjectKey(p.address).includes('babuskov') && projKey === 'PlisnakB3')
+        );
+
+        const projId = existingProject ? existingProject.id : defaultProjId;
+        const clientId = existingProject?.client_id || getCanonicalClientId(rawProject);
+        const isActive = ACTIVE_PROJECTS_NAMES.includes(projKey) || existingProject?.status === 'in_progress';
 
         if (!projectsMap[projId]) {
-          const existingProject = existingProjects.find(p => p.id === projId);
           projectsMap[projId] = {
             id: projId,
-            title: existingProject?.title || `Объект ${projKey}`,
-            client_id: existingProject?.client_id || clientId,
-            status: existingProject?.status || (ACTIVE_PROJECTS_NAMES.includes(projKey) ? 'in_progress' : 'completed'),
-            address: existingProject?.address || projKey,
-            city: existingProject?.city || 'Bratislava',
+            title: existingProject?.title || PROJECT_METADATA[projKey]?.title || `Объект ${projKey}`,
+            client_id: clientId,
+            status: existingProject?.status || (isActive ? 'in_progress' : 'completed'),
+            address: existingProject?.address || PROJECT_METADATA[projKey]?.address || projKey,
+            city: existingProject?.city || PROJECT_METADATA[projKey]?.city || 'Bratislava',
             start_date: existingProject?.start_date || '2026-04-01',
-            deadline: existingProject?.deadline || '2026-10-31',
+            deadline: existingProject?.deadline || (isActive ? '2026-11-30' : '2026-08-01'),
             budget_estimated: 0,
             budget_cost_estimated: 0,
             budget_actual_spent: 0,
@@ -442,7 +462,7 @@ export async function syncFromGoogleSheets(customUrl?: string) {
       completedProjectsCount: projectsList.filter(p => p.status === 'completed').length,
       expensesCount: expenses.length,
       invoicesCount: invoices.length,
-      message: `Синхронизировано: 5 активных объектов (${ACTIVE_PROJECTS_NAMES.join(', ')}), ${projectsList.length - 5} завершенных и ${expenses.length} записей расходов!`,
+      message: `Синхронизировано: ${projectsList.filter(p => p.status === 'in_progress').length} активных объектов (${ACTIVE_PROJECTS_NAMES.join(', ')}), ${projectsList.filter(p => p.status === 'completed').length} завершенных и ${expenses.length} записей расходов!`,
     };
   } catch (err: any) {
     console.error('Sync error:', err);
