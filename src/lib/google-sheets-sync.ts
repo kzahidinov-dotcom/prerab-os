@@ -97,6 +97,20 @@ const PROJECT_METADATA: Record<string, { title: string; client: string; address:
   'Urminsky': { title: 'Ремонт объекта Urminský', client: 'Клиент Urminský', address: 'Bratislava', city: 'Bratislava' },
 };
 
+/**
+ * Объектом может быть только осмысленное название с буквами.
+ * Суммы, даты и прочерки в колонке объекта означают, что в этой строке
+ * формы объект не указан — такую запись ведем как общий расход фирмы.
+ */
+export function isLikelyProjectName(value?: string): boolean {
+  const v = (value || '').trim();
+  if (!v || v === '-' || v === '—') return false;
+  if (v.length < 2) return false;
+  if (/^[\d\s.,:/\\-]+$/.test(v)) return false;   // 520 | 166,05 | 22.08.2026 | 12:30
+  if (!/[a-zа-яё]/i.test(v)) return false;         // без единой буквы — не название
+  return true;
+}
+
 export function normalizeProjectKey(str: string): string {
   if (!str) return '';
   return str
@@ -242,7 +256,7 @@ export async function syncFromGoogleSheets(customUrl?: string) {
       const author = row[2] || '';
       const recordType = row[10] || '';
 
-      let rawProject = row[30] || row[3] || row[11] || row[23] || row[28] || '';
+      let rawProject = [row[30], row[3], row[11], row[23], row[28]].find(isLikelyProjectName) || '';
       let categoryRaw = row[31] || row[4] || row[13] || row[18] || row[22] || row[27] || 'Інше';
       let amount = parseAmount(row[32]) || parseAmount(row[6]) || parseAmount(row[14]) || parseAmount(row[19]) || parseAmount(row[24]) || parseAmount(row[29]);
       let type = row[33] || row[5] || (recordType.toLowerCase().includes('дохід') ? 'Дохід' : (recordType.toLowerCase().includes('розхід') ? 'Витрата' : '')) || (categoryRaw.toLowerCase().includes('дохід') || categoryRaw.toLowerCase().includes('аванс') ? 'Дохід' : 'Витрата');
@@ -252,7 +266,10 @@ export async function syncFromGoogleSheets(customUrl?: string) {
       if (!amount && !description) continue;
 
       rawProject = rawProject.trim();
-      const isGeneralCompanyExpense = !rawProject || rawProject === '-' || rawProject.toLowerCase() === 'загальні' || rawProject.toLowerCase().includes('загальні');
+      const isGeneralCompanyExpense =
+        !isLikelyProjectName(rawProject) ||
+        rawProject.toLowerCase() === 'загальні' ||
+        rawProject.toLowerCase().includes('загальні');
 
       const isIncome = type.toLowerCase().includes('дохід') || 
                        recordType.toLowerCase().includes('дохід') || 

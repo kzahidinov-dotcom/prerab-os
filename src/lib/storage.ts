@@ -880,6 +880,73 @@ class StorageManager {
     this.deleteFromSupabase('projects', projectId);
   }
 
+  // -------------------------------------------------------------
+  // Очистка мусорных объектов, созданных прежней синхронизацией
+  // («Объект 520», «Объект 166,05» — в колонку объекта попадала сумма).
+  // Деньги не теряются: расходы и счета переносятся в общие по фирме.
+  // -------------------------------------------------------------
+  public static isJunkProject(p: Project): boolean {
+    const title = (p?.title || '').trim();
+    if (!title) return false;
+    return /^Объект\s*[\d\s.,:/-]+$/.test(title);
+  }
+
+  public getJunkProjects(): Project[] {
+    return this.getProjects().filter(p => StorageManager.isJunkProject(p));
+  }
+
+  public async purgeJunkProjects(): Promise<number> {
+    const junk = this.getJunkProjects();
+    if (junk.length === 0) return 0;
+
+    const junkIds = new Set(junk.map(p => p.id));
+
+    // 1. Переносим привязанные записи в общие расходы фирмы
+    const expenses = this.getExpenses();
+    const movedExpenses = expenses.map(e => (junkIds.has(e.project_id) ? { ...e, project_id: '' } : e));
+    const invoices = this.getInvoices();
+    const movedInvoices = invoices.map(i => (junkIds.has(i.project_id) ? { ...i, project_id: '' } : i));
+    const supplierInvoices = this.getSupplierInvoices();
+    const movedSupplier = supplierInvoices.map(i => (junkIds.has(i.project_id || '') ? { ...i, project_id: '' } : i));
+
+    this.setItem(STORAGE_KEYS.EXPENSES, movedExpenses);
+    this.setItem(STORAGE_KEYS.INVOICES, movedInvoices);
+    this.setItem(STORAGE_KEYS.SUPPLIER_INVOICES, movedSupplier);
+    this.setItem(STORAGE_KEYS.PROJECTS, this.getProjects().filter(p => !junkIds.has(p.id)));
+
+    // 2. В облаке порядок важен: сначала отвязываем записи, потом удаляем объекты,
+    //    иначе каскадное удаление в базе утащит расходы вместе с объектом
+    try {
+      const sb = getSupabaseClient();
+      if (sb) {
+        const touchedExpenses = movedExpenses.filter(e => expenses.some(o => o.id === e.id && o.project_id !== e.project_id));
+        const touchedInvoices = movedInvoices.filter(i => invoices.some(o => o.id === i.id && o.project_id !== i.project_id));
+
+        if (touchedExpenses.length > 0) {
+          await sb.from('expenses').upsert(this.sanitizeForSupabase('expenses', touchedExpenses), { onConflict: 'id' });
+        }
+        if (touchedInvoices.length > 0) {
+          await sb.from('invoices').upsert(this.sanitizeForSupabase('invoices', touchedInvoices), { onConflict: 'id' });
+        }
+        await this.syncSupplierInvoicesToCloud(movedSupplier);
+
+        for (const id of Array.from(junkIds)) {
+          await sb.from('projects').delete().eq('id', id);
+        }
+      }
+    } catch (e) {
+      console.warn('Ошибка очистки мусорных объектов в облаке:', e);
+    }
+
+    this.broadcastCloudChange('projects', {
+      title: 'Очистка списка объектов',
+      action: 'Удалены ошибочные объекты',
+      description: `Удалено ошибочных объектов: ${junk.length}. Их расходы перенесены в общие по фирме.`
+    });
+
+    return junk.length;
+  }
+
   // Budgets
   public getBudgets(): BudgetEstimate[] {
     const res = this.getItem<BudgetEstimate[]>(STORAGE_KEYS.BUDGETS, []);

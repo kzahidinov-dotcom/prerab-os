@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Client, 
   Project, 
@@ -78,6 +78,9 @@ export default function Home() {
   const [isBudgetEstimatorOpen, setIsBudgetEstimatorOpen] = useState(false);
   const [activeBudgetForEdit, setActiveBudgetForEdit] = useState<BudgetEstimate | undefined>(undefined);
 
+  // Разовая чистка ошибочных объектов за сессию
+  const junkProjectsChecked = useRef(false);
+
   // Initialize and load data
   const loadAllData = () => {
     storage.initSeedData();
@@ -107,6 +110,22 @@ export default function Home() {
         const ok = await storage.fetchAllFromCloud();
         if (ok) {
           loadAllData();
+        }
+
+        // Убираем объекты, ошибочно созданные прежней синхронизацией
+        // из числовых значений («Объект 520», «Объект 166,05»)
+        if (!junkProjectsChecked.current) {
+          junkProjectsChecked.current = true;
+          const removed = await storage.purgeJunkProjects();
+          if (removed > 0) {
+            loadAllData();
+            showToast({
+              title: '🧹 Список объектов очищен',
+              message: `Удалено ошибочных объектов: ${removed}. Их суммы перенесены в общие расходы фирмы.`,
+              type: 'sync',
+              duration: 8000,
+            });
+          }
         }
       } catch (err) {
         console.warn('Silent Supabase fetch skipped:', err);
