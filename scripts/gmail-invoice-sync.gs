@@ -18,6 +18,9 @@
  *   4. Сверху выберите функцию "nastavitAutomatiku" и нажмите «Выполнить».
  *      Google спросит разрешения — разрешите доступ к Gmail и Drive.
  *   5. Готово: фактуры сами появятся в разделе «Фактуры на уплату».
+ *   6. (Желательно) Слева «Службы» -> «+» -> «Drive API» -> Добавить.
+ *      Тогда скрипт прочитает сумму и срок оплаты прямо из PDF фактуры,
+ *      даже если само письмо пустое. Без этого шага скрипт тоже работает.
  *
  * Проверить вручную: выберите функцию "spracovatFaktury" и нажмите «Выполнить»,
  * затем откройте «Просмотр -> Журнал выполнения».
@@ -34,8 +37,13 @@ var CONFIG = {
 
   // Поисковый запрос Gmail: какие письма считать фактурами.
   // Можно сузить до конкретных отправителей, например:
-  // 'from:(hornbach.sk OR obi.sk OR siko.sk) newer_than:30d'
-  GMAIL_QUERY: 'newer_than:30d (subject:(faktúra OR faktura OR fakturu OR faktúru OR invoice OR "na úhradu" OR "na uhradu") OR has:attachment subject:(fakt OR invoice))',
+  // 'newer_than:30d from:(hornbach.sk OR obi.sk OR siko.sk)'
+  GMAIL_QUERY: 'newer_than:30d (subject:faktura OR subject:faktúra OR subject:fakturu OR subject:faktúru OR subject:faktúry OR subject:invoice OR subject:"na úhradu" OR subject:"na uhradu" OR subject:"daňový doklad" OR subject:"danovy doklad" OR filename:faktura OR filename:faktúra OR filename:invoice)',
+
+  // Читать текст из PDF вложения (нужно, когда в письме пусто, а вся
+  // фактура внутри PDF). Работает, если подключена служба Drive API —
+  // см. пункт 6 инструкции. Без нее скрипт просто работает без чтения PDF.
+  EXTRACT_PDF_TEXT: true,
 
   // Ярлык, которым помечаются уже обработанные письма
   PROCESSED_LABEL: 'Prerab OS/Фактура принята',
@@ -71,6 +79,7 @@ function spracovatFaktury() {
       var attachmentName = '';
 
       // Сохраняем первое вложение PDF / изображение на Google Drive
+      var attachmentText = '';
       var attachments = message.getAttachments({ includeInlineImages: false });
       for (var i = 0; i < attachments.length; i++) {
         var att = attachments[i];
@@ -85,6 +94,11 @@ function spracovatFaktury() {
           } catch (e) {
             Logger.log('Не удалось сохранить вложение: ' + e);
           }
+
+          // Читаем текст самой фактуры из PDF — там всегда есть сумма и срок оплаты
+          if (CONFIG.EXTRACT_PDF_TEXT) {
+            attachmentText = precitatTextZPrilohy_(att);
+          }
           break;
         }
       }
@@ -98,6 +112,7 @@ function spracovatFaktury() {
         message_id: message.getId(),
         attachment_name: attachmentName,
         attachment_url: attachmentUrl,
+        attachment_text: attachmentText,
       });
     });
 
@@ -185,6 +200,47 @@ function ziskatLabel_(name) {
   var label = GmailApp.getUserLabelByName(name);
   if (!label) label = GmailApp.createLabel(name);
   return label;
+}
+
+/**
+ * Достает текст из PDF или фото фактуры через распознавание Google.
+ * Если служба Drive API не подключена — молча возвращает пустую строку,
+ * и фактура все равно заведется (по данным из письма).
+ */
+function precitatTextZPrilohy_(attachment) {
+  try {
+    if (typeof Drive === 'undefined' || !Drive.Files) return '';
+
+    var docId = '';
+    var blob = attachment.copyBlob();
+
+    if (Drive.Files.create) {
+      // Drive API v3
+      var created = Drive.Files.create(
+        { name: 'prerab-ocr-' + Date.now(), mimeType: 'application/vnd.google-apps.document' },
+        blob,
+        { ocrLanguage: 'sk' }
+      );
+      docId = created.id;
+    } else {
+      // Drive API v2
+      var inserted = Drive.Files.insert(
+        { title: 'prerab-ocr-' + Date.now(), mimeType: 'application/vnd.google-apps.document' },
+        blob,
+        { ocr: true, ocrLanguage: 'sk', convert: true }
+      );
+      docId = inserted.id;
+    }
+
+    if (!docId) return '';
+
+    var text = DocumentApp.openById(docId).getBody().getText();
+    DriveApp.getFileById(docId).setTrashed(true);
+    return (text || '').substring(0, 15000);
+  } catch (e) {
+    Logger.log('Чтение PDF пропущено (служба Drive API не подключена): ' + e);
+    return '';
+  }
 }
 
 function ziskatFolder_(name) {

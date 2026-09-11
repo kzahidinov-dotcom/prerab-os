@@ -226,10 +226,13 @@ export function looksLikeInvoiceEmail(email: RawInvoiceEmail): boolean {
   const subject = (email.subject || '').toLowerCase();
   const body = stripHtml(email.body || email.html || '').toLowerCase();
   const attachment = (email.attachment_name || '').toLowerCase();
+  // Текст, распознанный из PDF: письмо может быть пустым, а фактура — внутри вложения
+  const attachmentText = (email.attachment_text || '').slice(0, 4000).toLowerCase();
 
   const hasMarker =
     INVOICE_MARKERS.some(m => subject.includes(m)) ||
     INVOICE_MARKERS.some(m => body.includes(m)) ||
+    INVOICE_MARKERS.some(m => attachmentText.includes(m)) ||
     /fakt|invoice|фактур/i.test(attachment);
 
   if (!hasMarker) return false;
