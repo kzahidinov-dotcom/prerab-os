@@ -50,6 +50,7 @@ export const DEFAULT_COMPANY_SETTINGS: CompanySettings = {
   invoice_prefix: 'VF-2026/',
   quote_prefix: 'CP-2026/',
   reverse_charge_text: 'Prenesenie daňovej povinnosti podľa § 69 ods. 12 písm. j zákona č. 222/2004 Z. z. o DPH.',
+  count_supplier_invoices_in_costs: false,
   supabase_url: 'https://vomktsnufaatfxesbqfl.supabase.co',
   supabase_anon_key: 'sb_publishable_hlmExlU1508_IsiytG7vow_8sKJg62F',
 };
@@ -947,6 +948,34 @@ class StorageManager {
     return junk.length;
   }
 
+  // Пока учет фактур в расходах выключен, расходы, созданные из фактур,
+  // не должны влиять на дашборд и себестоимость объектов
+  public async removeSupplierInvoiceExpenses(): Promise<number> {
+    const expenses = this.getExpenses();
+    const fromInvoices = expenses.filter(e => e.id.startsWith('exp-sinv-'));
+    if (fromInvoices.length === 0) return 0;
+
+    this.setItem(STORAGE_KEYS.EXPENSES, expenses.filter(e => !e.id.startsWith('exp-sinv-')));
+
+    const invoices = this.getSupplierInvoices();
+    if (invoices.some(i => i.expense_id)) {
+      this.saveSupplierInvoices(invoices.map(i => ({ ...i, expense_id: undefined })));
+    }
+
+    try {
+      const sb = getSupabaseClient();
+      if (sb) {
+        for (const e of fromInvoices) {
+          await sb.from('expenses').delete().eq('id', e.id);
+        }
+      }
+    } catch (err) {
+      console.warn('Ошибка удаления расходов, созданных из фактур:', err);
+    }
+
+    return fromInvoices.length;
+  }
+
   // Budgets
   public getBudgets(): BudgetEstimate[] {
     const res = this.getItem<BudgetEstimate[]>(STORAGE_KEYS.BUDGETS, []);
@@ -1092,7 +1121,13 @@ class StorageManager {
   }
 
   // Провести уплаченную фактуру в «Расходы и Чеки» (чтобы попала в себестоимость объекта)
+  public isSupplierCostingEnabled(): boolean {
+    return this.getSettings().count_supplier_invoices_in_costs === true;
+  }
+
   public pushSupplierInvoiceToExpenses(invoiceId: string): { expense: Expense; wasUpdate: boolean } | null {
+    if (!this.isSupplierCostingEnabled()) return null;
+
     const invoice = this.getSupplierInvoices().find(i => i.id === invoiceId);
     if (!invoice) return null;
 

@@ -126,6 +126,21 @@ export default function Home() {
               duration: 8000,
             });
           }
+
+          // Пока учет фактур в расходах выключен, дашборд считает
+          // только данные из Google Таблицы
+          if (!storage.isSupplierCostingEnabled()) {
+            const cleared = await storage.removeSupplierInvoiceExpenses();
+            if (cleared > 0) {
+              loadAllData();
+              showToast({
+                title: '📊 Дашборд считает только Google Таблицу',
+                message: `Убрано из расходов фактур: ${cleared}. Сами фактуры остались в разделе «Фактуры на уплату».`,
+                type: 'sync',
+                duration: 8000,
+              });
+            }
+          }
         }
       } catch (err) {
         console.warn('Silent Supabase fetch skipped:', err);
@@ -325,6 +340,16 @@ export default function Home() {
   };
 
   const handlePushSupplierInvoiceToExpenses = (invoiceId: string) => {
+    if (!storage.isSupplierCostingEnabled()) {
+      showToast({
+        title: 'Учет фактур в расходах выключен',
+        message: 'Включите его в «Настройках», когда разнесете фактуры по объектам. Сейчас дашборд считает только Google Таблицу.',
+        type: 'sync',
+        duration: 8000,
+      });
+      return;
+    }
+
     const result = storage.pushSupplierInvoiceToExpenses(invoiceId);
     setSupplierInvoices(storage.getSupplierInvoices());
     setExpenses(storage.getExpenses());
