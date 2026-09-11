@@ -256,12 +256,17 @@ export async function syncFromGoogleSheets(customUrl?: string) {
       const author = row[2] || '';
       const recordType = row[10] || '';
 
-      let rawProject = [row[30], row[3], row[11], row[23], row[28]].find(isLikelyProjectName) || '';
-      let categoryRaw = row[31] || row[4] || row[13] || row[18] || row[22] || row[27] || 'Інше';
-      let amount = parseAmount(row[32]) || parseAmount(row[6]) || parseAmount(row[14]) || parseAmount(row[19]) || parseAmount(row[24]) || parseAmount(row[29]);
-      let type = row[33] || row[5] || (recordType.toLowerCase().includes('дохід') ? 'Дохід' : (recordType.toLowerCase().includes('розхід') ? 'Витрата' : '')) || (categoryRaw.toLowerCase().includes('дохід') || categoryRaw.toLowerCase().includes('аванс') ? 'Дохід' : 'Витрата');
-      let paymentMethod = row[34] || row[7] || row[16] || row[20] || row[25] || 'Карта фірма';
-      let description = row[35] || row[8] || row[17] || row[21] || row[26] || '';
+      // Колонки сводного блока листа «СТАТИСТИКА ФИН»:
+      //   30 — Сума (число)          33 — Сума (зведено)
+      //   31 — Об'єкт (зведено)      34 — Тип операції (зведено)
+      //   32 — Категорія (зведено)   35 — Спосіб оплати   36 — Опис
+      // Дальше идут запасные колонки исходных блоков формы (3..29).
+      let rawProject = [row[31], row[3], row[11], row[23], row[29]].find(isLikelyProjectName) || '';
+      let categoryRaw = row[32] || row[4] || row[13] || row[18] || row[22] || row[28] || 'Інше';
+      let amount = parseAmount(row[33]) || parseAmount(row[30]) || parseAmount(row[6]) || parseAmount(row[14]) || parseAmount(row[19]) || parseAmount(row[24]);
+      let type = row[34] || row[5] || (recordType.toLowerCase().includes('дохід') ? 'Дохід' : (recordType.toLowerCase().includes('розхід') ? 'Витрата' : '')) || (categoryRaw.toLowerCase().includes('дохід') || categoryRaw.toLowerCase().includes('аванс') ? 'Дохід' : 'Витрата');
+      let paymentMethod = row[35] || row[7] || row[16] || row[20] || row[25] || 'Карта фірма';
+      let description = row[36] || row[8] || row[17] || row[21] || row[26] || '';
 
       if (!amount && !description) continue;
 
