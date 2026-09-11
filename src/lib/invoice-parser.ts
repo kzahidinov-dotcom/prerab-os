@@ -13,6 +13,7 @@ export interface RawInvoiceEmail {
   html?: string;              // HTML-версия письма (если передана отдельно)
   received_at?: string;       // Дата письма (ISO)
   message_id?: string;        // Gmail Message ID — ключ защиты от дублей
+  thread_id?: string;         // Gmail Thread ID — чтобы открыть письмо одним кликом
   attachment_name?: string;   // faktura_2026001.pdf
   attachment_url?: string;    // Ссылка на PDF (Google Drive) или data:URL
   attachment_text?: string;   // Извлеченный текст PDF (если отправитель его прислал)
@@ -447,6 +448,7 @@ export function buildSupplierInvoiceFromEmail(email: RawInvoiceEmail, idSuffix?:
     email_from: email.from,
     email_subject: email.subject,
     email_message_id: email.message_id,
+    email_thread_id: email.thread_id,
     email_received_at: receivedIso,
     attachment_name: email.attachment_name,
     attachment_url: email.attachment_url,

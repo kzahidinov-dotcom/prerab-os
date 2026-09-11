@@ -89,6 +89,7 @@ function normalizeEmails(payload: any): RawInvoiceEmail[] {
       html: e.html || e.bodyHtml || '',
       received_at: e.received_at || e.date || e.Date || new Date().toISOString(),
       message_id: e.message_id || e.messageId || e.id || e['Message-Id'],
+      thread_id: e.thread_id || e.threadId,
       attachment_name: e.attachment_name || e.attachmentName || (Array.isArray(e.attachments) ? e.attachments[0]?.name : undefined),
       attachment_url: e.attachment_url || e.attachmentUrl || (Array.isArray(e.attachments) ? e.attachments[0]?.url : undefined),
       attachment_text: e.attachment_text || e.attachmentText || (Array.isArray(e.attachments) ? e.attachments[0]?.text : undefined),

@@ -408,6 +408,7 @@ export interface SupplierInvoice {
   email_from?: string;           // Отправитель письма (faktury@hornbach.sk)
   email_subject?: string;        // Тема письма
   email_message_id?: string;     // ID письма Gmail — защита от дублей
+  email_thread_id?: string;      // ID переписки Gmail — для кнопки «Открыть письмо»
   email_received_at?: string;    // Когда письмо пришло на почту
   attachment_name?: string;      // Имя вложения (faktura_2026001.pdf)
   attachment_url?: string;       // Ссылка на PDF (Google Drive) или data:URL

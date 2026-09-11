@@ -66,6 +66,7 @@ export const SupplierInvoicesTab: React.FC<SupplierInvoicesTabProps> = ({
   supplierInvoices,
   projects,
   settings,
+  onSaveSupplierInvoice,
   onDeleteSupplierInvoice,
   onMarkPaid,
   onMarkUnpaid,
@@ -367,7 +368,30 @@ export const SupplierInvoicesTab: React.FC<SupplierInvoicesTabProps> = ({
                     </td>
 
                     <td className="p-3.5">
-                      <div className="font-medium text-slate-800">{project?.title || 'Общий расход фирмы'}</div>
+                      <select
+                        value={inv.project_id || ''}
+                        onChange={(e) =>
+                          onSaveSupplierInvoice({ ...inv, project_id: e.target.value, updated_at: new Date().toISOString() })
+                        }
+                        className={`w-full max-w-[190px] text-[11px] font-semibold rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors ${
+                          inv.project_id
+                            ? 'bg-white border border-slate-200 text-slate-800'
+                            : 'bg-amber-50 border border-amber-300 text-amber-800'
+                        }`}
+                        title={
+                          inv.project_id
+                            ? 'Объект, на который спишется эта фактура'
+                            : 'Объект не выбран — фактура пойдет в общие расходы фирмы'
+                        }
+                      >
+                        <option value="">Общий расход фирмы</option>
+                        {projects.map(p => (
+                          <option key={p.id} value={p.id}>{p.title}</option>
+                        ))}
+                      </select>
+                      {inv.expense_id && (
+                        <div className="text-[10px] text-emerald-600 font-bold mt-1">Проведено в расходы</div>
+                      )}
                     </td>
 
                     <td className="p-3.5 font-mono text-slate-600 whitespace-nowrap">{formatDateDmY(inv.issue_date)}</td>
@@ -429,6 +453,18 @@ export const SupplierInvoicesTab: React.FC<SupplierInvoicesTabProps> = ({
                         >
                           <QrCode className="w-3.5 h-3.5" />
                         </button>
+
+                        {(inv.email_thread_id || inv.email_message_id) && (
+                          <a
+                            href={`https://mail.google.com/mail/u/0/#all/${inv.email_thread_id || inv.email_message_id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors"
+                            title={`Открыть исходное письмо в Gmail${inv.email_from ? `: ${inv.email_from}` : ''}`}
+                          >
+                            <Mail className="w-3.5 h-3.5" />
+                          </a>
+                        )}
 
                         {inv.attachment_url && (
                           <a

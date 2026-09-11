@@ -111,6 +111,7 @@ function spracovatFaktury() {
         html: message.getBody(),
         received_at: message.getDate().toISOString(),
         message_id: message.getId(),
+        thread_id: thread.getId(),
         attachment_name: attachmentName,
         attachment_url: attachmentUrl,
         attachment_text: attachmentText,

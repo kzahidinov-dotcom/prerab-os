@@ -956,6 +956,7 @@ class StorageManager {
       updated = [stamped, ...current];
     }
     this.saveSupplierInvoices(updated);
+    this.syncLinkedExpense(stamped);
   }
 
   public deleteSupplierInvoice(invoiceId: string): void {
@@ -1024,10 +1025,9 @@ class StorageManager {
   }
 
   // Провести уплаченную фактуру в «Расходы и Чеки» (чтобы попала в себестоимость объекта)
-  public pushSupplierInvoiceToExpenses(invoiceId: string): Expense | null {
+  public pushSupplierInvoiceToExpenses(invoiceId: string): { expense: Expense; wasUpdate: boolean } | null {
     const invoice = this.getSupplierInvoices().find(i => i.id === invoiceId);
     if (!invoice) return null;
-    if (invoice.expense_id && this.getExpenses().some(e => e.id === invoice.expense_id)) return null;
 
     const expense: Expense = {
       id: `exp-sinv-${invoice.id}`,
@@ -1048,13 +1048,38 @@ class StorageManager {
 
     const expenses = this.getExpenses();
     const idx = expenses.findIndex(e => e.id === expense.id);
-    const updatedExpenses = idx >= 0
+    const wasUpdate = idx >= 0;
+    const updatedExpenses = wasUpdate
       ? expenses.map(e => (e.id === expense.id ? expense : e))
       : [expense, ...expenses];
     this.saveExpenses(updatedExpenses);
 
     this.saveSupplierInvoice({ ...invoice, expense_id: expense.id });
-    return expense;
+    return { expense, wasUpdate };
+  }
+
+  // Если у фактуры сменили объект или сумму, связанный расход едет следом,
+  // иначе себестоимость объекта разойдется с фактурой
+  private syncLinkedExpense(invoice: SupplierInvoice): void {
+    if (!invoice.expense_id) return;
+    const expenses = this.getExpenses();
+    const idx = expenses.findIndex(e => e.id === invoice.expense_id);
+    if (idx < 0) return;
+
+    const updated = [...expenses];
+    updated[idx] = {
+      ...updated[idx],
+      project_id: invoice.project_id || '',
+      category: invoice.category || updated[idx].category,
+      vendor: invoice.supplier_name,
+      amount_without_vat: invoice.amount_without_vat,
+      vat_rate: invoice.vat_rate,
+      vat_amount: invoice.vat_amount,
+      amount_with_vat: invoice.amount_with_vat,
+      receipt_number: invoice.invoice_number,
+      date: invoice.paid_at || invoice.issue_date,
+    };
+    this.saveExpenses(updated);
   }
 
   // Облачная синхронизация фактур на уплату

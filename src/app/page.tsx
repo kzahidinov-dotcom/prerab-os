@@ -306,14 +306,15 @@ export default function Home() {
   };
 
   const handlePushSupplierInvoiceToExpenses = (invoiceId: string) => {
-    const created = storage.pushSupplierInvoiceToExpenses(invoiceId);
+    const result = storage.pushSupplierInvoiceToExpenses(invoiceId);
     setSupplierInvoices(storage.getSupplierInvoices());
     setExpenses(storage.getExpenses());
+    if (!result) return;
+
+    const targetProject = projects.find(p => p.id === result.expense.project_id);
     showToast({
-      title: created ? '🧾 Фактура проведена в расходы' : 'Фактура уже проведена',
-      message: created
-        ? `${created.vendor}: ${created.amount_with_vat.toFixed(2)} € записано в «Расходы и Чеки»`
-        : 'Эта фактура уже есть в разделе «Расходы и Чеки».',
+      title: result.wasUpdate ? '🧾 Расход обновлен' : '🧾 Фактура проведена в расходы',
+      message: `${result.expense.vendor}: ${result.expense.amount_with_vat.toFixed(2)} € — ${targetProject ? targetProject.title : 'общие расходы фирмы'}`,
       type: 'sync',
       duration: 5000,
     });

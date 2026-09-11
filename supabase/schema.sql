@@ -184,6 +184,7 @@ CREATE TABLE IF NOT EXISTS public.supplier_invoices (
     email_from TEXT,
     email_subject TEXT,
     email_message_id TEXT,                      -- защита от дублей писем
+    email_thread_id TEXT,                       -- ссылка на переписку в Gmail
     email_received_at TIMESTAMPTZ,
     attachment_name TEXT,
     attachment_url TEXT,
