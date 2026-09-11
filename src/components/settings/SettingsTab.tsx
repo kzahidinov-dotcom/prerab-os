@@ -331,52 +331,6 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
         </div>
       </div>
 
-      {/* SECTION: УЧЕТ ФАКТУР ПОСТАВЩИКОВ В РАСХОДАХ */}
-      <div className="surface p-6 space-y-4">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-4 gap-4">
-          <div>
-            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-              <Building className="w-4 h-4 text-brand-500" />
-              <span>Учет фактур поставщиков в расходах</span>
-            </h3>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Когда выключено, дашборд и себестоимость объектов считаются только по данным из Google Таблицы,
-              а фактуры из раздела «Фактуры на уплату» в расходы не попадают. Включайте, когда разнесете фактуры по объектам.
-            </p>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => {
-              const next = { ...formData, count_supplier_invoices_in_costs: !formData.count_supplier_invoices_in_costs };
-              setFormData(next);
-              onSaveSettings(next);
-            }}
-            className={`shrink-0 flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold border transition-colors ${
-              formData.count_supplier_invoices_in_costs
-                ? 'bg-brand-50 text-brand-700 border-brand-200'
-                : 'bg-slate-100 text-slate-500 border-slate-200'
-            }`}
-          >
-            {formData.count_supplier_invoices_in_costs ? 'Фактуры учитываются' : 'Фактуры не учитываются'}
-          </button>
-        </div>
-
-        <div className="text-xs text-slate-500 leading-relaxed">
-          {formData.count_supplier_invoices_in_costs ? (
-            <>
-              Кнопка «Провести в расходы» в разделе фактур активна. Проведенная фактура попадает в «Расходы и Чеки»
-              и в себестоимость того объекта, который выбран у нее в списке.
-            </>
-          ) : (
-            <>
-              Кнопка «Провести в расходы» пока заблокирована, а расходы, созданные из фактур ранее, убраны из подсчетов.
-              Сами фактуры и их статусы оплаты не тронуты.
-            </>
-          )}
-        </div>
-      </div>
-
       {/* SECTION: SOUND & NOTIFICATIONS */}
       <div className="surface p-6 space-y-4">
         <div className="flex items-center justify-between border-b border-slate-100 pb-4">

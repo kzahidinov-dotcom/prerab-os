@@ -283,10 +283,6 @@ export interface CompanySettings {
   reverse_charge_text: string;  // "Prenesenie daňovej povinnosti podľa § 69 ods. 12 písm. j zákona o DPH."
   supabase_url?: string;
   supabase_anon_key?: string;
-  // Учитывать ли оплаченные фактуры поставщиков в расходах и себестоимости
-  // объектов. Пока фактуры не разнесены по объектам, держим выключенным,
-  // чтобы дашборд считал только данные из Google Таблицы.
-  count_supplier_invoices_in_costs?: boolean;
   // Ссылка на вкладку с финансовым дашбордом в Google Таблице
   finance_dashboard_url?: string;
 }

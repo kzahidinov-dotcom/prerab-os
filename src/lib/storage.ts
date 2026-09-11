@@ -50,7 +50,6 @@ export const DEFAULT_COMPANY_SETTINGS: CompanySettings = {
   invoice_prefix: 'VF-2026/',
   quote_prefix: 'CP-2026/',
   reverse_charge_text: 'Prenesenie daňovej povinnosti podľa § 69 ods. 12 písm. j zákona č. 222/2004 Z. z. o DPH.',
-  count_supplier_invoices_in_costs: false,
   supabase_url: 'https://vomktsnufaatfxesbqfl.supabase.co',
   supabase_anon_key: 'sb_publishable_hlmExlU1508_IsiytG7vow_8sKJg62F',
 };
@@ -948,8 +947,8 @@ class StorageManager {
     return junk.length;
   }
 
-  // Пока учет фактур в расходах выключен, расходы, созданные из фактур,
-  // не должны влиять на дашборд и себестоимость объектов
+  // Раздел фактур живет отдельно от финансов: расходы, созданные из фактур
+  // прежней версией системы, удаляются, чтобы не попадать в статистику
   public async removeSupplierInvoiceExpenses(): Promise<number> {
     const expenses = this.getExpenses();
     const fromInvoices = expenses.filter(e => e.id.startsWith('exp-sinv-'));
@@ -1086,7 +1085,6 @@ class StorageManager {
       updated = [stamped, ...current];
     }
     this.saveSupplierInvoices(updated);
-    this.syncLinkedExpense(stamped);
   }
 
   public deleteSupplierInvoice(invoiceId: string): void {
@@ -1152,70 +1150,6 @@ class StorageManager {
       this.saveSupplierInvoices([...fresh, ...current]);
     }
     return { added: fresh.length, skipped };
-  }
-
-  // Провести уплаченную фактуру в «Расходы и Чеки» (чтобы попала в себестоимость объекта)
-  public isSupplierCostingEnabled(): boolean {
-    return this.getSettings().count_supplier_invoices_in_costs === true;
-  }
-
-  public pushSupplierInvoiceToExpenses(invoiceId: string): { expense: Expense; wasUpdate: boolean } | null {
-    if (!this.isSupplierCostingEnabled()) return null;
-
-    const invoice = this.getSupplierInvoices().find(i => i.id === invoiceId);
-    if (!invoice) return null;
-
-    const expense: Expense = {
-      id: `exp-sinv-${invoice.id}`,
-      project_id: invoice.project_id || '',
-      category: invoice.category || 'materials',
-      vendor: invoice.supplier_name,
-      description: `Фактура ${invoice.invoice_number} (${invoice.supplier_name})`,
-      amount_without_vat: invoice.amount_without_vat,
-      vat_rate: invoice.vat_rate,
-      vat_amount: invoice.vat_amount,
-      amount_with_vat: invoice.amount_with_vat,
-      receipt_number: invoice.invoice_number,
-      receipt_photo_url: invoice.attachment_url,
-      date: invoice.paid_at || invoice.issue_date,
-      paid_by: invoice.paid_by || 'Банковский перевод',
-      status: 'approved',
-    };
-
-    const expenses = this.getExpenses();
-    const idx = expenses.findIndex(e => e.id === expense.id);
-    const wasUpdate = idx >= 0;
-    const updatedExpenses = wasUpdate
-      ? expenses.map(e => (e.id === expense.id ? expense : e))
-      : [expense, ...expenses];
-    this.saveExpenses(updatedExpenses);
-
-    this.saveSupplierInvoice({ ...invoice, expense_id: expense.id });
-    return { expense, wasUpdate };
-  }
-
-  // Если у фактуры сменили объект или сумму, связанный расход едет следом,
-  // иначе себестоимость объекта разойдется с фактурой
-  private syncLinkedExpense(invoice: SupplierInvoice): void {
-    if (!invoice.expense_id) return;
-    const expenses = this.getExpenses();
-    const idx = expenses.findIndex(e => e.id === invoice.expense_id);
-    if (idx < 0) return;
-
-    const updated = [...expenses];
-    updated[idx] = {
-      ...updated[idx],
-      project_id: invoice.project_id || '',
-      category: invoice.category || updated[idx].category,
-      vendor: invoice.supplier_name,
-      amount_without_vat: invoice.amount_without_vat,
-      vat_rate: invoice.vat_rate,
-      vat_amount: invoice.vat_amount,
-      amount_with_vat: invoice.amount_with_vat,
-      receipt_number: invoice.invoice_number,
-      date: invoice.paid_at || invoice.issue_date,
-    };
-    this.saveExpenses(updated);
   }
 
   // Облачная синхронизация фактур на уплату

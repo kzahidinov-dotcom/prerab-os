@@ -17,7 +17,6 @@ import {
   QrCode,
   Undo2,
   Pencil,
-  Receipt,
   RefreshCw,
   CalendarClock,
 } from 'lucide-react';
@@ -30,7 +29,6 @@ interface SupplierInvoicesTabProps {
   onDeleteSupplierInvoice: (invoiceId: string) => void;
   onMarkPaid: (invoiceId: string, payment: { paid_at: string; paid_amount: number; paid_by: string; payment_method: 'bank_transfer' | 'cash' | 'card' }) => void;
   onMarkUnpaid: (invoiceId: string) => void;
-  onPushToExpenses: (invoiceId: string) => void;
   onOpenNewInvoice: () => void;
   onEditInvoice: (invoice: SupplierInvoice) => void;
   onRefresh: () => void;
@@ -70,7 +68,6 @@ export const SupplierInvoicesTab: React.FC<SupplierInvoicesTabProps> = ({
   onDeleteSupplierInvoice,
   onMarkPaid,
   onMarkUnpaid,
-  onPushToExpenses,
   onOpenNewInvoice,
   onEditInvoice,
   onRefresh,
@@ -90,8 +87,6 @@ export const SupplierInvoicesTab: React.FC<SupplierInvoicesTabProps> = ({
   });
 
   const list = Array.isArray(supplierInvoices) ? supplierInvoices : [];
-  // Пока учет выключен, фактуры не попадают в расходы и себестоимость объектов
-  const costingEnabled = settings?.count_supplier_invoices_in_costs === true;
 
   const stats = useMemo(() => {
     const unpaid = list.filter(i => i.payment_status !== 'paid');
@@ -318,16 +313,15 @@ export const SupplierInvoicesTab: React.FC<SupplierInvoicesTabProps> = ({
         </div>
       </div>
 
-      {!costingEnabled && (
-        <div className="bg-slate-900 text-slate-200 rounded-xl px-4 py-3 flex items-start gap-3">
-          <AlertTriangle className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
-          <div className="text-xs leading-relaxed">
-            <span className="font-bold text-white">Фактуры пока не влияют на дашборд и себестоимость объектов.</span>{' '}
-            Выручка и расходы считаются только по данным из Google Таблицы. Разнесите фактуры по объектам в колонке
-            «Объект», а затем включите учет в разделе «Настройки» — и кнопка «Провести в расходы» станет активной.
-          </div>
+      <div className="bg-slate-900 text-slate-200 rounded-xl px-4 py-3 flex items-start gap-3">
+        <Inbox className="w-4 h-4 text-brand-400 mt-0.5 shrink-0" />
+        <div className="text-xs leading-relaxed">
+          <span className="font-bold text-white">Это отдельный учет фактур для удобства.</span>{' '}
+          Раздел не связан с финансовой статистикой: дашборд, себестоимость объектов и отчеты
+          берут цифры только из вашей Google Таблицы. Здесь вы видите, что и кому нужно заплатить,
+          отмечаете оплату и держите PDF под рукой.
         </div>
-      )}
+      </div>
 
       {/* Таблица фактур */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
@@ -490,23 +484,6 @@ export const SupplierInvoicesTab: React.FC<SupplierInvoicesTabProps> = ({
                             <Paperclip className="w-3.5 h-3.5" />
                           </a>
                         )}
-
-                        <button
-                          onClick={() => onPushToExpenses(inv.id)}
-                          disabled={!costingEnabled}
-                          className={`p-1.5 rounded transition-colors ${
-                            costingEnabled
-                              ? 'text-slate-500 hover:text-amber-600 hover:bg-amber-50'
-                              : 'text-slate-300 cursor-not-allowed'
-                          }`}
-                          title={
-                            costingEnabled
-                              ? 'Провести фактуру в «Расходы и Чеки» (в себестоимость объекта)'
-                              : 'Учет фактур в расходах выключен. Включите его в «Настройках», когда разнесете фактуры по объектам'
-                          }
-                        >
-                          <Receipt className="w-3.5 h-3.5" />
-                        </button>
 
                         <button
                           onClick={() => onEditInvoice(inv)}

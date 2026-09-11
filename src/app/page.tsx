@@ -142,19 +142,16 @@ export default function Home() {
             });
           }
 
-          // Пока учет фактур в расходах выключен, дашборд считает
-          // только данные из Google Таблицы
-          if (!storage.isSupplierCostingEnabled()) {
-            const cleared = await storage.removeSupplierInvoiceExpenses();
-            if (cleared > 0) {
-              loadAllData();
-              showToast({
-                title: '📊 Дашборд считает только Google Таблицу',
-                message: `Убрано из расходов фактур: ${cleared}. Сами фактуры остались в разделе «Фактуры на уплату».`,
-                type: 'sync',
-                duration: 8000,
-              });
-            }
+          // Раздел фактур не участвует в финансах
+          const cleared = await storage.removeSupplierInvoiceExpenses();
+          if (cleared > 0) {
+            loadAllData();
+            showToast({
+              title: '📊 Финансы считаются только по Google Таблице',
+              message: `Убрано из расходов фактур: ${cleared}. Сами фактуры остались в разделе «Фактуры на уплату».`,
+              type: 'sync',
+              duration: 8000,
+            });
           }
         }
       } catch (err) {
@@ -366,31 +363,6 @@ export default function Home() {
   const handleMarkSupplierInvoiceUnpaid = (invoiceId: string) => {
     storage.markSupplierInvoiceUnpaid(invoiceId);
     setSupplierInvoices(storage.getSupplierInvoices());
-  };
-
-  const handlePushSupplierInvoiceToExpenses = (invoiceId: string) => {
-    if (!storage.isSupplierCostingEnabled()) {
-      showToast({
-        title: 'Учет фактур в расходах выключен',
-        message: 'Включите его в «Настройках», когда разнесете фактуры по объектам. Сейчас дашборд считает только Google Таблицу.',
-        type: 'sync',
-        duration: 8000,
-      });
-      return;
-    }
-
-    const result = storage.pushSupplierInvoiceToExpenses(invoiceId);
-    setSupplierInvoices(storage.getSupplierInvoices());
-    setExpenses(storage.getExpenses());
-    if (!result) return;
-
-    const targetProject = projects.find(p => p.id === result.expense.project_id);
-    showToast({
-      title: result.wasUpdate ? '🧾 Расход обновлен' : '🧾 Фактура проведена в расходы',
-      message: `${result.expense.vendor}: ${result.expense.amount_with_vat.toFixed(2)} € — ${targetProject ? targetProject.title : 'общие расходы фирмы'}`,
-      type: 'sync',
-      duration: 5000,
-    });
   };
 
   const handleSaveWorker = (worker: Worker) => {
@@ -741,7 +713,6 @@ export default function Home() {
               onDeleteSupplierInvoice={handleDeleteSupplierInvoice}
               onMarkPaid={handleMarkSupplierInvoicePaid}
               onMarkUnpaid={handleMarkSupplierInvoiceUnpaid}
-              onPushToExpenses={handlePushSupplierInvoiceToExpenses}
               onOpenNewInvoice={() => {
                 setSupplierInvoiceForEdit(undefined);
                 setIsSupplierInvoiceModalOpen(true);

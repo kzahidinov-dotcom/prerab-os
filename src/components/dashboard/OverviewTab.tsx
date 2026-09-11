@@ -131,21 +131,24 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
     ? finance.overhead.map(o => ({ name: o.category, sum: o.amount }))
     : overheadCategories;
 
-  // Top Active Projects with Margins
+  // Деньги по объектам берутся ТОЛЬКО из листа таблицы. Если объекта в листе
+  // нет — сумм не показываем вовсе, чтобы на дашборде не появлялись цифры,
+  // посчитанные системой самостоятельно.
   const activeProjectsFinancials = activeProjects.map(prj => {
     const sheetRow = financeRowFor(prj.title);
-    const prjInvoices = invoices.filter(i => i.project_id === prj.id);
-    const revenue = sheetRow
-      ? sheetRow.income
-      : (prjInvoices.reduce((s, i) => s + (i.paid_amount || i.total_amount || 0), 0) || prj.budget_estimated);
+    const fallbackRevenue = invoices
+      .filter(i => i.project_id === prj.id)
+      .reduce((s, i) => s + (i.paid_amount || i.total_amount || 0), 0) || prj.budget_estimated;
+    const fallbackSpent = expenses
+      .filter(e => e.project_id === prj.id)
+      .reduce((s, e) => s + e.amount_without_vat, 0) || prj.budget_actual_spent;
 
-    const prjExps = expenses.filter(e => e.project_id === prj.id);
-    const spent = sheetRow
-      ? sheetRow.total_expense
-      : (prjExps.reduce((s, e) => s + e.amount_without_vat, 0) || prj.budget_actual_spent);
-    
-    const profit = revenue - spent;
-    const margin = revenue > 0 ? (profit / revenue) * 100 : 0;
+    const revenue = sheetMode ? (sheetRow ? sheetRow.income : 0) : fallbackRevenue;
+    const spent = sheetMode ? (sheetRow ? sheetRow.total_expense : 0) : fallbackSpent;
+    const profit = sheetRow ? sheetRow.balance : revenue - spent;
+    const margin = sheetRow
+      ? sheetRow.margin_percent
+      : (revenue > 0 ? ((revenue - spent) / revenue) * 100 : 0);
 
     return {
       project: prj,
@@ -153,6 +156,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
       spent,
       profit,
       margin,
+      hasMoney: sheetMode ? !!sheetRow : true,
     };
   });
 
@@ -358,7 +362,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
         </div>
 
         <div className="divide-y divide-slate-100">
-          {activeProjectsFinancials.map(({ project, revenue, spent, profit, margin }) => {
+          {activeProjectsFinancials.map(({ project, revenue, spent, profit, margin, hasMoney }) => {
             const client = clients.find(c => c.id === project.client_id);
             return (
             <div
@@ -391,22 +395,33 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
 
               {/* Numbers */}
               <div className="flex flex-wrap items-center gap-6 text-xs">
-                <div>
-                  <div className="text-[11px] text-slate-500 font-medium">Получено оплат:</div>
-                  <div className="text-sm font-bold text-slate-900 tnum">{formatSlovakEur(revenue)}</div>
-                </div>
+                {hasMoney ? (
+                  <>
+                    <div>
+                      <div className="text-[11px] text-slate-500 font-medium">Получено оплат:</div>
+                      <div className="text-sm font-bold text-slate-900 tnum">{formatSlovakEur(revenue)}</div>
+                    </div>
 
-                <div>
-                  <div className="text-[11px] text-slate-500 font-medium">Расходы на объект:</div>
-                  <div className="text-sm font-bold text-amber-700 tnum">{formatSlovakEur(spent)}</div>
-                </div>
+                    <div>
+                      <div className="text-[11px] text-slate-500 font-medium">Расходы на объект:</div>
+                      <div className="text-sm font-bold text-amber-700 tnum">{formatSlovakEur(spent)}</div>
+                    </div>
 
-                <div className="min-w-[120px]">
-                  <div className="text-[11px] text-slate-500 font-medium">Прибыль / Маржа:</div>
-                  <div className={`text-sm font-black tnum ${profit >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                    {formatSlovakEur(profit)} ({margin.toFixed(1)}%)
+                    <div className="min-w-[120px]">
+                      <div className="text-[11px] text-slate-500 font-medium">Прибыль / Маржа:</div>
+                      <div className={`text-sm font-black tnum ${profit >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                        {formatSlovakEur(profit)} ({margin.toFixed(1)}%)
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="min-w-[260px]">
+                    <div className="text-[11px] text-slate-500 font-medium">Финансы по объекту:</div>
+                    <div className="text-xs font-semibold text-slate-400">
+                      Объекта нет в листе «ФІНАНСОВИЙ ДАШБОРД» таблицы
+                    </div>
                   </div>
-                </div>
+                )}
 
                 <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400 group-hover:text-brand-600 group-hover:bg-brand-50 transition-colors">
                   <ChevronRight className="w-4 h-4" />
@@ -471,11 +486,12 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
 
           <div className="grid grid-cols-2 gap-2 text-xs">
             {completedProjects.slice(0, 8).map(prj => {
+              const sheetRow = financeRowFor(prj.title);
               const prjInvs = invoices.filter(i => i.project_id === prj.id);
               const rev = prjInvs.reduce((s, i) => s + (i.paid_amount || i.total_amount || 0), 0) || prj.budget_estimated;
               const prjExps = expenses.filter(e => e.project_id === prj.id);
               const exp = prjExps.reduce((s, e) => s + e.amount_without_vat, 0) || prj.budget_actual_spent;
-              const prof = rev - exp;
+              const prof = sheetRow ? sheetRow.balance : (sheetMode ? null : rev - exp);
 
               return (
                 <div
@@ -484,8 +500,14 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                   className="p-2.5 rounded-xl bg-slate-50 hover:bg-white hover:shadow-card cursor-pointer transition-all border border-slate-200/60"
                 >
                   <div className="font-bold text-slate-800 truncate">{prj.address}</div>
-                  <div className="text-[11px] text-emerald-600 font-bold mt-0.5 tnum">
-                    Маржа: +{formatSlovakEur(prof)}
+                  <div className="text-[11px] font-bold mt-0.5 tnum text-emerald-600">
+                    {prof === null ? (
+                      <span className="text-slate-400 font-semibold">нет в листе таблицы</span>
+                    ) : (
+                      <span className={prof >= 0 ? 'text-emerald-600' : 'text-rose-600'}>
+                        Маржа: {formatSlovakEur(prof)}
+                      </span>
+                    )}
                   </div>
                 </div>
               );
