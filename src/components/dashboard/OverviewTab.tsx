@@ -143,8 +143,8 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
       .filter(e => e.project_id === prj.id)
       .reduce((s, e) => s + e.amount_without_vat, 0) || prj.budget_actual_spent;
 
-    const revenue = sheetMode ? (sheetRow ? sheetRow.income : 0) : fallbackRevenue;
-    const spent = sheetMode ? (sheetRow ? sheetRow.total_expense : 0) : fallbackSpent;
+    const revenue = sheetRow ? sheetRow.income : fallbackRevenue;
+    const spent = sheetRow ? sheetRow.total_expense : fallbackSpent;
     const profit = sheetRow ? sheetRow.balance : revenue - spent;
     const margin = sheetRow
       ? sheetRow.margin_percent
@@ -156,7 +156,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
       spent,
       profit,
       margin,
-      hasMoney: sheetMode ? !!sheetRow : true,
+      hasMoney: !!sheetRow,
     };
   });
 
@@ -259,10 +259,10 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
           </div>
           <div className="mt-3">
             <div className="text-[26px] font-display font-bold text-slate-900 tracking-tight tnum">
-              {formatSlovakEur(displayRevenue)}
+              {sheetMode ? formatSlovakEur(displayRevenue) : '—'}
             </div>
             <p className="text-xs text-emerald-700 font-semibold mt-1.5">
-              {sheetMode ? 'По листу «ФІНАНСОВИЙ ДАШБОРД» таблицы' : `${invoices.length} зафиксированных оплат и авансов`}
+              {sheetMode ? 'По листу «ФІНАНСОВИЙ ДАШБОРД» таблицы' : 'Нет связи с таблицей'}
             </p>
           </div>
         </div>
@@ -279,7 +279,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
           </div>
           <div className="mt-3">
             <div className="text-[26px] font-display font-bold text-slate-900 tracking-tight tnum">
-              {formatSlovakEur(displayProjectExpenses)}
+              {sheetMode ? formatSlovakEur(displayProjectExpenses) : '—'}
             </div>
             <p className="text-xs text-slate-500 font-medium mt-1.5">
               Стройматериалы, дизайн, зарплаты мастеров, мусор
@@ -299,7 +299,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
           </div>
           <div className="mt-3">
             <div className="text-[26px] font-display font-bold text-slate-900 tracking-tight tnum">
-              {formatSlovakEur(displayOverhead)}
+              {sheetMode ? formatSlovakEur(displayOverhead) : '—'}
             </div>
             <p className="text-xs text-slate-500 font-medium mt-1.5">
               {sheetMode && finance?.top_overhead
@@ -322,11 +322,11 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
           </div>
           <div className="relative mt-3">
             <div className="text-[26px] font-display font-bold text-white tracking-tight tnum">
-              {formatSlovakEur(displayProfit)}
+              {sheetMode ? formatSlovakEur(displayProfit) : '—'}
             </div>
             <div className="flex items-center gap-2 mt-1.5">
               <span className="badge text-emerald-400 bg-emerald-500/15 border-emerald-500/30">
-                Маржа {displayMargin.toFixed(1)}%
+                Маржа {sheetMode ? `${displayMargin.toFixed(1)}%` : '—'}
               </span>
               <span className="text-[11px] text-slate-400">
                 {sheetMode ? 'по данным таблицы' : 'по всем объектам'}
@@ -441,7 +441,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
             <div>
               <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
                 <Building2 className="w-4 h-4 text-brand-500" />
-                <span>Структура общих расходов фирмы ({formatSlovakEur(displayOverhead)})</span>
+                <span>Структура общих расходов фирмы ({sheetMode ? formatSlovakEur(displayOverhead) : '—'})</span>
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
                 Постоянные затраты, не привязанные к конкретным объектам клиентов
@@ -450,7 +450,12 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
           </div>
 
           <div className="space-y-3.5 pt-1">
-            {overheadRows.map((cat, idx) => {
+            {!sheetMode && (
+              <div className="text-xs text-slate-400 font-semibold py-6 text-center">
+                Данные появятся, когда поднимется связь с листом таблицы
+              </div>
+            )}
+            {sheetMode && overheadRows.map((cat, idx) => {
               const pct = displayOverhead > 0 ? (cat.sum / displayOverhead) * 100 : 0;
               return (
                 <div key={idx} className="space-y-1.5">
@@ -491,7 +496,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
               const rev = prjInvs.reduce((s, i) => s + (i.paid_amount || i.total_amount || 0), 0) || prj.budget_estimated;
               const prjExps = expenses.filter(e => e.project_id === prj.id);
               const exp = prjExps.reduce((s, e) => s + e.amount_without_vat, 0) || prj.budget_actual_spent;
-              const prof = sheetRow ? sheetRow.balance : (sheetMode ? null : rev - exp);
+              const prof = sheetRow ? sheetRow.balance : null;
 
               return (
                 <div

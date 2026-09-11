@@ -192,6 +192,45 @@ export function parseFinanceDashboardCsv(csv: string, sourceUrl: string): Financ
   };
 }
 
+/**
+ * Находит вкладку с финансовым дашбордом, не зная ее названия.
+ * Открывает список листов таблицы, собирает их номера (gid) и по очереди
+ * проверяет, какой лист похож на финансовый дашборд.
+ */
+async function discoverDashboardUrls(): Promise<string[]> {
+  const listUrls = [
+    `https://docs.google.com/spreadsheets/d/${FINANCE_SHEET_ID}/htmlview`,
+    `https://docs.google.com/spreadsheets/d/${FINANCE_SHEET_ID}/pubhtml`,
+  ];
+
+  for (const listUrl of listUrls) {
+    try {
+      const res = await fetch(`${listUrl}?_t=${Date.now()}`, { cache: 'no-store' });
+      if (!res.ok) continue;
+      const html = await res.text();
+
+      const gids = new Set<string>();
+      const patterns = [/[#&?]gid=(\d+)/g, /sheet-button-(\d+)/g];
+      patterns.forEach(re => {
+        let m: RegExpExecArray | null;
+        while ((m = re.exec(html)) !== null) {
+          gids.add(m[1]);
+        }
+      });
+
+      if (gids.size > 0) {
+        return Array.from(gids)
+          .slice(0, 20)
+          .map(gid => `https://docs.google.com/spreadsheets/d/${FINANCE_SHEET_ID}/export?format=csv&gid=${gid}`);
+      }
+    } catch (e) {
+      // пробуем следующий способ
+    }
+  }
+
+  return [];
+}
+
 function buildCandidateUrls(): string[] {
   const urls: string[] = [];
 
@@ -249,6 +288,19 @@ export function getCachedFinanceDashboard(): FinanceDashboardData | null {
 export async function loadFinanceDashboard(explicitUrl?: string): Promise<FinanceDashboardData | null> {
   const candidates = explicitUrl ? [toCsvExportUrl(explicitUrl)] : buildCandidateUrls();
 
+  const found = await tryCandidates(candidates);
+  if (found) return found;
+
+  // Названия вкладки угадать не удалось — перебираем листы таблицы по номерам
+  if (!explicitUrl) {
+    const discovered = await discoverDashboardUrls();
+    return await tryCandidates(discovered);
+  }
+
+  return null;
+}
+
+async function tryCandidates(candidates: string[]): Promise<FinanceDashboardData | null> {
   for (const url of candidates) {
     if (!url) continue;
     try {
