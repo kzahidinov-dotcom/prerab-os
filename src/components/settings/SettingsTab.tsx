@@ -299,6 +299,38 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
         </div>
       </div>
 
+      {/* SECTION: ФИНАНСОВЫЙ ДАШБОРД ИЗ ТАБЛИЦЫ */}
+      <div className="surface p-6 space-y-4">
+        <div className="border-b border-slate-100 pb-4">
+          <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+            <FileSpreadsheet className="w-4 h-4 text-brand-500" />
+            <span>Финансовый дашборд из Google Таблицы</span>
+          </h3>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Дашборд показывает готовые цифры с листа «ФІНАНСОВИЙ ДАШБОРД ФІРМИ» таблицы STATISTICS FINAL
+            и ничего не пересчитывает сам. Систему вкладку находит автоматически; если не нашла —
+            откройте нужную вкладку в таблице, скопируйте ссылку из адресной строки и вставьте сюда.
+          </p>
+        </div>
+
+        <div>
+          <label className="block font-semibold text-slate-700 mb-1 text-xs">
+            Ссылка на вкладку с финансовым дашбордом
+          </label>
+          <input
+            type="text"
+            value={formData.finance_dashboard_url || ''}
+            onChange={(e) => setFormData({ ...formData, finance_dashboard_url: e.target.value })}
+            placeholder="https://docs.google.com/spreadsheets/d/.../edit#gid=123456789"
+            className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-brand-500 font-mono"
+          />
+          <p className="text-[11px] text-slate-500 mt-1">
+            Можно вставить целиком ссылку с «#gid=» — система сама превратит ее в адрес выгрузки.
+            После сохранения настроек обновите страницу.
+          </p>
+        </div>
+      </div>
+
       {/* SECTION: УЧЕТ ФАКТУР ПОСТАВЩИКОВ В РАСХОДАХ */}
       <div className="surface p-6 space-y-4">
         <div className="flex items-center justify-between border-b border-slate-100 pb-4 gap-4">

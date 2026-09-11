@@ -41,6 +41,7 @@ import { GanttChart } from '@/components/planner/GanttChart';
 import { NotificationToast, showToast } from '@/components/ui/NotificationToast';
 import { TeamReportModal } from '@/components/reports/TeamReportModal';
 import { checkAndPerformFridayBackup } from '@/lib/backup';
+import { FinanceDashboardData, loadFinanceDashboard, getCachedFinanceDashboard } from '@/lib/finance-dashboard';
 
 export default function Home() {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
@@ -60,6 +61,8 @@ export default function Home() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [scheduleStages, setScheduleStages] = useState<Task[]>([]);
   const [settings, setSettings] = useState<CompanySettings>(storage.getSettings());
+  // Финансовые итоги ведутся вручную в Google Таблице — сюда они только зеркалятся
+  const [finance, setFinance] = useState<FinanceDashboardData | null>(null);
 
   // Modals state
   const [isNewTaskModalOpen, setIsNewTaskModalOpen] = useState(false);
@@ -127,6 +130,18 @@ export default function Home() {
             });
           }
 
+          // Записи Google Формы дублировались: вебхуком и через лист таблицы
+          const dupes = await storage.purgeWebhookDuplicates();
+          if (dupes > 0) {
+            loadAllData();
+            showToast({
+              title: '🧹 Убраны двойные записи',
+              message: `Удалено дублей из Google Формы: ${dupes}. Эти записи остаются в таблице и берутся из нее.`,
+              type: 'sync',
+              duration: 8000,
+            });
+          }
+
           // Пока учет фактур в расходах выключен, дашборд считает
           // только данные из Google Таблицы
           if (!storage.isSupplierCostingEnabled()) {
@@ -175,6 +190,19 @@ export default function Home() {
     // 5. Periodic background sync from Google Sheets every 60 seconds
     const interval = setInterval(runSilentSync, 60000);
 
+    // 5b. Финансовый дашборд фирмы — готовые цифры из листа таблицы
+    setFinance(getCachedFinanceDashboard());
+    const runFinanceSync = async () => {
+      try {
+        const data = await loadFinanceDashboard(storage.getSettings().finance_dashboard_url);
+        if (data) setFinance(data);
+      } catch (err) {
+        console.warn('Финансовый дашборд из таблицы недоступен:', err);
+      }
+    };
+    runFinanceSync();
+    const financeInterval = setInterval(runFinanceSync, 60000);
+
     // 6. Automatic Friday backup check
     checkAndPerformFridayBackup();
 
@@ -210,6 +238,7 @@ export default function Home() {
     return () => {
       clearInterval(interval);
       clearInterval(cloudInterval);
+      clearInterval(financeInterval);
       window.removeEventListener('prerab_storage_update', handleStorageUpdate);
       window.removeEventListener('prerab_auth_change', handleAuthChange);
       window.removeEventListener('prerab_cloud_sync_received', handleCloudSyncReceived);
@@ -602,6 +631,7 @@ export default function Home() {
         <main id="main-scroll-container" className="flex-1 p-6 overflow-y-auto">
           {activeTab === 'dashboard' && (
             <OverviewTab
+              finance={finance}
               projects={projects}
               clients={clients}
               expenses={expenses}

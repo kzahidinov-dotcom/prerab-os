@@ -976,6 +976,40 @@ class StorageManager {
     return fromInvoices.length;
   }
 
+  // Записи Google Формы приходили дважды: напрямую вебхуком (exp-live-, inv-live-)
+  // и через лист таблицы (exp-g-, inv-g-). Убираем дубли вебхука — все эти записи
+  // есть в таблице и подтянутся из нее.
+  public async purgeWebhookDuplicates(): Promise<number> {
+    const expenses = this.getExpenses();
+    const invoices = this.getInvoices();
+    const dupExpenses = expenses.filter(e => e.id.startsWith('exp-live-'));
+    const dupInvoices = invoices.filter(i => i.id.startsWith('inv-live-'));
+    if (dupExpenses.length === 0 && dupInvoices.length === 0) return 0;
+
+    if (dupExpenses.length > 0) {
+      this.setItem(STORAGE_KEYS.EXPENSES, expenses.filter(e => !e.id.startsWith('exp-live-')));
+    }
+    if (dupInvoices.length > 0) {
+      this.setItem(STORAGE_KEYS.INVOICES, invoices.filter(i => !i.id.startsWith('inv-live-')));
+    }
+
+    try {
+      const sb = getSupabaseClient();
+      if (sb) {
+        for (const e of dupExpenses) {
+          await sb.from('expenses').delete().eq('id', e.id);
+        }
+        for (const i of dupInvoices) {
+          await sb.from('invoices').delete().eq('id', i.id);
+        }
+      }
+    } catch (err) {
+      console.warn('Ошибка удаления дублей вебхука:', err);
+    }
+
+    return dupExpenses.length + dupInvoices.length;
+  }
+
   // Budgets
   public getBudgets(): BudgetEstimate[] {
     const res = this.getItem<BudgetEstimate[]>(STORAGE_KEYS.BUDGETS, []);
