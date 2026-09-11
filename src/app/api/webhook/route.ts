@@ -6,11 +6,32 @@ const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'sb_publishable
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-// Webhook endpoint called by Google Apps Script automatically whenever a Google Form is submitted
+// Приемник Google Формы.
+//
+// ВАЖНО: записи больше НЕ создаются здесь. Каждая отправка формы и так попадает
+// в лист «СТАТИСТИКА ФИН» таблицы STATISTICS FINAL, откуда система забирает ее
+// при синхронизации. Раньше запись создавалась обоими путями, и суммы в
+// финансах удваивались. Эндпоинт оставлен живым, чтобы скрипт Google Форм не
+// падал с ошибкой, и логирует поступившую заявку.
 export async function POST(req: NextRequest) {
   try {
     const payload = await req.json();
-    console.log('Received live webhook from Google Workspace:', payload);
+    console.log('Заявка из Google Формы принята (запись берется из таблицы):', payload);
+
+    return NextResponse.json({
+      success: true,
+      recorded: false,
+      message: 'Принято. Запись попадет в систему из листа СТАТИСТИКА ФИН при ближайшей синхронизации.',
+    });
+  } catch (err: any) {
+    console.error('Webhook error:', err);
+    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+  }
+}
+
+// Прежняя логика прямой записи в базу (отключена из-за двойного учета)
+async function legacyDirectInsert(payload: any) {
+  try {
 
     const {
       date,
@@ -85,10 +106,10 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    return NextResponse.json({ success: true, message: 'Google Form recorded in Supabase' });
+    return { success: true };
   } catch (err: any) {
-    console.error('Webhook error:', err);
-    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+    console.error('Legacy insert error:', err);
+    return { success: false, error: err.message };
   }
 }
 

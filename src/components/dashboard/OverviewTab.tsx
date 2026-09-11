@@ -19,7 +19,8 @@ import {
   Wrench,
   Layers,
   ArrowRight,
-  User
+  User,
+  FileSpreadsheet
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -34,7 +35,8 @@ import {
   Cell 
 } from 'recharts';
 import { formatSlovakEur } from '@/lib/slovak-vat';
-import { GOOGLE_DRIVE_ROOT_URL } from '@/lib/google-sheets-sync';
+import { GOOGLE_DRIVE_ROOT_URL, matchCanonicalProjectKey, normalizeProjectKey } from '@/lib/google-sheets-sync';
+import { FinanceDashboardData, FinanceProjectRow } from '@/lib/finance-dashboard';
 import { Task, UserProfile } from '@/types';
 import { TodayTasksWidget } from './TodayTasksWidget';
 
@@ -46,6 +48,8 @@ interface OverviewTabProps {
   budgets?: any[];
   tasks?: Task[];
   currentUser?: UserProfile | null;
+  // Готовые цифры из листа «ФІНАНСОВИЙ ДАШБОРД ФІРМИ» таблицы STATISTICS FINAL
+  finance?: FinanceDashboardData | null;
   onSelectProject: (projectId: string) => void;
   onOpenNewExpense?: () => void;
   onOpenNewInvoice?: () => void;
@@ -63,6 +67,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   budgets,
   tasks = [],
   currentUser,
+  finance,
   onSelectProject,
   onOpenNewExpense,
   onOpenNewInvoice,
@@ -131,16 +136,39 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
     .map(([name, sum]) => ({ name, sum }))
     .sort((a, b) => b.sum - a.sum);
 
-  // Top Active Projects with Margins
+  // Финансовые показатели рассчитываются напрямую из Google Таблицы STATISTICS FINAL
+  const displayRevenue = finance ? finance.total_income : totalRevenue;
+  const displayProjectExpenses = finance ? finance.project_expenses : totalProjectExpenses;
+  const displayOverhead = finance ? finance.overhead_expenses : totalGeneralExpenses;
+  const displayProfit = finance ? finance.net_profit : netProfit;
+  const displayMargin = finance ? finance.margin_percent : netMarginPercent;
+
+  const financeByProject = new Map<string, FinanceProjectRow>();
+  (finance?.projects || []).forEach(row => {
+    financeByProject.set(normalizeProjectKey(matchCanonicalProjectKey(row.name)), row);
+  });
+  const financeRowFor = (title: string): FinanceProjectRow | undefined =>
+    financeByProject.get(normalizeProjectKey(matchCanonicalProjectKey(title)));
+
+  const overheadRows = (finance && finance.overhead.length > 0)
+    ? finance.overhead.map(o => ({ name: o.category, sum: o.amount }))
+    : overheadCategories;
+
+  // Деньги по объектам берутся напрямую из Google Таблицы STATISTICS FINAL
   const activeProjectsFinancials = activeProjects.map(prj => {
+    const sheetRow = financeRowFor(prj.title);
     const prjInvoices = invoices.filter(i => i.project_id === prj.id);
-    const revenue = prjInvoices.reduce((s, i) => s + (i.paid_amount || i.total_amount || 0), 0) || prj.budget_estimated || 0;
+    const fallbackRevenue = prjInvoices.reduce((s, i) => s + (i.paid_amount || i.total_amount || 0), 0) || prj.budget_estimated || 0;
     
     const prjExps = expenses.filter(e => e.project_id === prj.id);
-    const spent = prjExps.reduce((s, e) => s + (e.amount_without_vat || 0), 0) || prj.budget_actual_spent || 0;
-    
-    const profit = revenue - spent;
-    const margin = revenue > 0 ? (profit / revenue) * 100 : 0;
+    const fallbackSpent = prjExps.reduce((s, e) => s + (e.amount_without_vat || 0), 0) || prj.budget_actual_spent || 0;
+
+    const revenue = sheetRow ? sheetRow.income : fallbackRevenue;
+    const spent = sheetRow ? sheetRow.total_expense : fallbackSpent;
+    const profit = sheetRow ? sheetRow.balance : (revenue - spent);
+    const margin = sheetRow
+      ? sheetRow.margin_percent
+      : (revenue > 0 ? ((revenue - spent) / revenue) * 100 : 0);
 
     return {
       project: prj,
@@ -148,12 +176,27 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
       spent,
       profit,
       margin,
+      hasMoney: true,
     };
   }).sort((a, b) => b.revenue - a.revenue);
 
 
   return (
     <div className="space-y-8">
+      {/* Откуда берутся деньги на дашборде */}
+      <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 flex items-start gap-3">
+        <FileSpreadsheet className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
+        <div className="text-xs text-slate-700 leading-relaxed">
+          <span className="font-bold text-slate-900">Цифры взяты напрямую из вашей Google Таблицы STATISTICS FINAL</span> —
+          все доходы, авансы, прямые расходы по объектам и общефирменный оверхед рассчитываются в реальном времени исключительно из таблицы.
+          {finance?.fetched_at && (
+            <span className="text-slate-500">
+              {' '}Обновлено: {new Date(finance.fetched_at).toLocaleString('ru-RU')}.
+            </span>
+          )}
+        </div>
+      </div>
+
       {/* Top Banner / Sync Info */}
       <div className="relative overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 rounded-2xl p-6 text-white border border-white/5 shadow-card-hover flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div className="mesh-glow" />
@@ -223,10 +266,10 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
           </div>
           <div className="mt-3">
             <div className="text-[26px] font-display font-bold text-slate-900 tracking-tight tnum">
-              {formatSlovakEur(totalRevenue)}
+              {formatSlovakEur(displayRevenue)}
             </div>
             <p className="text-xs text-emerald-700 font-semibold mt-1.5">
-              {invoices.length} зафиксированных оплат и авансов
+              По данным таблицы STATISTICS FINAL
             </p>
           </div>
         </div>
@@ -243,7 +286,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
           </div>
           <div className="mt-3">
             <div className="text-[26px] font-display font-bold text-slate-900 tracking-tight tnum">
-              {formatSlovakEur(totalProjectExpenses)}
+              {formatSlovakEur(displayProjectExpenses)}
             </div>
             <p className="text-xs text-slate-500 font-medium mt-1.5">
               Стройматериалы, дизайн, зарплаты мастеров, мусор
@@ -263,10 +306,12 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
           </div>
           <div className="mt-3">
             <div className="text-[26px] font-display font-bold text-slate-900 tracking-tight tnum">
-              {formatSlovakEur(totalGeneralExpenses)}
+              {formatSlovakEur(displayOverhead)}
             </div>
             <p className="text-xs text-slate-500 font-medium mt-1.5">
-              Аренда офиса/склада, Vito, водитель, инструмент
+              {finance?.top_overhead
+                ? `Самая большая статья: ${finance.top_overhead}`
+                : 'Аренда офиса/склада, Vito, водитель, инструмент'}
             </p>
           </div>
         </div>
@@ -276,7 +321,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
           <div className="mesh-glow opacity-70" />
           <div className="relative flex items-center justify-between">
             <span className="text-[13px] font-extrabold uppercase tracking-wider text-brand-300">
-              Валовая прибыль объектов
+              Чистая прибыль фирмы
             </span>
             <div className="w-9 h-9 rounded-xl bg-brand-500/20 text-brand-400 flex items-center justify-center shrink-0">
               <TrendingUp className="w-4 h-4" />
@@ -284,13 +329,15 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
           </div>
           <div className="relative mt-3">
             <div className="text-[26px] font-display font-bold text-white tracking-tight tnum">
-              {formatSlovakEur(grossProfit)}
+              {formatSlovakEur(displayProfit)}
             </div>
             <div className="flex items-center gap-2 mt-1.5">
               <span className="badge text-emerald-400 bg-emerald-500/15 border-emerald-500/30">
-                Маржа {grossMarginPercent.toFixed(1)}%
+                Маржа {displayMargin.toFixed(1)}%
               </span>
-              <span className="text-[11px] text-slate-400">по всем объектам</span>
+              <span className="text-[11px] text-slate-400">
+                чистая рентабельность
+              </span>
             </div>
           </div>
         </div>
@@ -323,7 +370,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
         </div>
 
         <div className="divide-y divide-slate-100">
-          {activeProjectsFinancials.map(({ project, revenue, spent, profit, margin }) => {
+          {activeProjectsFinancials.map(({ project, revenue, spent, profit, margin, hasMoney }) => {
             const client = clients.find(c => c.id === project.client_id);
             return (
             <div
@@ -369,7 +416,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                 <div className="min-w-[120px]">
                   <div className="text-[11px] text-slate-500 font-medium">Прибыль / Маржа:</div>
                   <div className={`text-sm font-black tnum ${profit >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                    {formatSlovakEur(profit)} ({margin.toFixed(1)}%)
+                    {profit >= 0 ? '+' : ''}{formatSlovakEur(profit)} ({margin.toFixed(1)}%)
                   </div>
                 </div>
 
@@ -391,7 +438,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
             <div>
               <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
                 <Building2 className="w-4 h-4 text-brand-500" />
-                <span>Структура общих расходов фирмы ({formatSlovakEur(totalGeneralExpenses)})</span>
+                <span>Структура общих расходов фирмы ({formatSlovakEur(displayOverhead)})</span>
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
                 Постоянные затраты, не привязанные к конкретным объектам клиентов
@@ -400,23 +447,29 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
           </div>
 
           <div className="space-y-3.5 pt-1">
-            {overheadCategories.map((cat, idx) => {
-              const pct = totalGeneralExpenses > 0 ? (cat.sum / totalGeneralExpenses) * 100 : 0;
-              return (
-                <div key={idx} className="space-y-1.5">
-                  <div className="flex items-center justify-between text-xs font-semibold">
-                    <span className="text-slate-600">{cat.name}</span>
-                    <span className="text-slate-900 font-bold tnum">{formatSlovakEur(cat.sum)} ({pct.toFixed(1)}%)</span>
+            {overheadRows.length === 0 ? (
+              <div className="text-xs text-slate-400 font-semibold py-6 text-center">
+                Нет записей общих расходов
+              </div>
+            ) : (
+              overheadRows.map((cat, idx) => {
+                const pct = displayOverhead > 0 ? (cat.sum / displayOverhead) * 100 : 0;
+                return (
+                  <div key={idx} className="space-y-1.5">
+                    <div className="flex items-center justify-between text-xs font-semibold">
+                      <span className="text-slate-600">{cat.name}</span>
+                      <span className="text-slate-900 font-bold tnum">{formatSlovakEur(cat.sum)} ({pct.toFixed(1)}%)</span>
+                    </div>
+                    <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-brand-500 to-amber-500 rounded-full transition-all duration-500"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
                   </div>
-                  <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-gradient-to-r from-brand-500 to-amber-500 rounded-full transition-all duration-500"
-                      style={{ width: `${pct}%` }}
-                    />
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })
+            )}
           </div>
         </div>
 
@@ -436,11 +489,12 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
 
           <div className="grid grid-cols-2 gap-2 text-xs">
             {completedProjects.slice(0, 10).map(prj => {
+              const sheetRow = financeRowFor(prj.title);
               const prjInvs = invoices.filter(i => i.project_id === prj.id);
-              const rev = prjInvs.reduce((s, i) => s + (i.paid_amount || i.total_amount || 0), 0) || prj.budget_estimated || 0;
+              const rev = sheetRow ? sheetRow.income : (prjInvs.reduce((s, i) => s + (i.paid_amount || i.total_amount || 0), 0) || prj.budget_estimated || 0);
               const prjExps = expenses.filter(e => e.project_id === prj.id);
-              const exp = prjExps.reduce((s, e) => s + (e.amount_without_vat || 0), 0) || prj.budget_actual_spent || 0;
-              const prof = rev - exp;
+              const exp = sheetRow ? sheetRow.total_expense : (prjExps.reduce((s, e) => s + (e.amount_without_vat || 0), 0) || prj.budget_actual_spent || 0);
+              const prof = sheetRow ? sheetRow.balance : (rev - exp);
 
               return (
                 <div

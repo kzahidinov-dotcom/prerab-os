@@ -157,6 +157,46 @@ CREATE TABLE IF NOT EXISTS public.tasks (
     completed_at TIMESTAMPTZ
 );
 
+-- 9. ТАБЛИЦА ВХОДЯЩИХ ФАКТУР НА УПЛАТУ (DOŠLÉ FAKTÚRY OD DODÁVATEĽOV)
+CREATE TABLE IF NOT EXISTS public.supplier_invoices (
+    id TEXT PRIMARY KEY,
+    supplier_name TEXT NOT NULL,
+    supplier_ico TEXT,
+    supplier_iban TEXT,
+    invoice_number TEXT NOT NULL,
+    variable_symbol TEXT,
+    constant_symbol TEXT DEFAULT '0308',
+    issue_date DATE DEFAULT CURRENT_DATE,
+    due_date DATE DEFAULT CURRENT_DATE + INTERVAL '14 days',
+    amount_without_vat NUMERIC(12, 2) DEFAULT 0,
+    vat_rate NUMERIC(5, 2) DEFAULT 23,
+    vat_amount NUMERIC(12, 2) DEFAULT 0,
+    amount_with_vat NUMERIC(12, 2) DEFAULT 0,
+    currency TEXT DEFAULT 'EUR',
+    project_id TEXT REFERENCES public.projects(id) ON DELETE SET NULL,
+    category TEXT DEFAULT 'materials',
+    payment_status TEXT DEFAULT 'unpaid',       -- unpaid | partial | paid
+    paid_amount NUMERIC(12, 2) DEFAULT 0,
+    paid_at DATE,                               -- КОГДА уплачено
+    paid_by TEXT,
+    payment_method TEXT DEFAULT 'bank_transfer',
+    source TEXT DEFAULT 'manual',               -- email | manual | import
+    email_from TEXT,
+    email_subject TEXT,
+    email_message_id TEXT,                      -- защита от дублей писем
+    email_thread_id TEXT,                       -- ссылка на переписку в Gmail
+    email_received_at TIMESTAMPTZ,
+    attachment_name TEXT,
+    attachment_url TEXT,
+    expense_id TEXT,
+    notes TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_supplier_invoices_status ON public.supplier_invoices (payment_status, due_date);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_supplier_invoices_email_msg ON public.supplier_invoices (email_message_id) WHERE email_message_id IS NOT NULL;
+
 -- ====================================================================
 -- ПОЛИТИКИ ДОСТУПА (РАЗРЕШЕНИЕ ЧТЕНИЯ И ЗАПИСИ ДЛЯ ВАШЕГО ПРИЛОЖЕНИЯ)
 -- ====================================================================
@@ -168,6 +208,7 @@ ALTER TABLE public.invoices ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.workers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.work_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.tasks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.supplier_invoices ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Public full access clients" ON public.clients;
 CREATE POLICY "Public full access clients" ON public.clients FOR ALL USING (true) WITH CHECK (true);
@@ -192,3 +233,6 @@ CREATE POLICY "Public full access work_logs" ON public.work_logs FOR ALL USING (
 
 DROP POLICY IF EXISTS "Public full access tasks" ON public.tasks;
 CREATE POLICY "Public full access tasks" ON public.tasks FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Public full access supplier_invoices" ON public.supplier_invoices;
+CREATE POLICY "Public full access supplier_invoices" ON public.supplier_invoices FOR ALL USING (true) WITH CHECK (true);

@@ -283,6 +283,8 @@ export interface CompanySettings {
   reverse_charge_text: string;  // "Prenesenie daňovej povinnosti podľa § 69 ods. 12 písm. j zákona o DPH."
   supabase_url?: string;
   supabase_anon_key?: string;
+  // Ссылка на вкладку с финансовым дашбордом в Google Таблице
+  finance_dashboard_url?: string;
 }
 
 // -------------------------------------------------------------
@@ -363,6 +365,57 @@ export interface ScheduleTemplate {
   description: string;
   category: 'renovation' | 'bathroom' | 'drywall' | 'custom';
   stages: ScheduleTemplateStage[];
+  created_at: string;
+  updated_at: string;
+}
+
+// -------------------------------------------------------------
+// SUPPLIER INVOICES (Входящие фактуры на уплату / Došlé faktúry)
+// Фактуры, которые приходят на почту фирмы от магазинов и поставщиков
+// -------------------------------------------------------------
+
+export type SupplierInvoiceStatus =
+  | 'unpaid'        // Не уплачено
+  | 'partial'       // Уплачено частично
+  | 'paid';         // Уплачено
+
+export type SupplierInvoiceSource =
+  | 'email'         // Автоматически принято с почты (Gmail)
+  | 'manual'        // Заведено вручную в системе
+  | 'import';       // Загружено из бэкапа / Google Таблицы
+
+export interface SupplierInvoice {
+  id: string;
+  supplier_name: string;         // Поставщик / Магазин (Hornbach, OBI, Siko, Slovnaft...)
+  supplier_ico?: string;         // IČO поставщика
+  supplier_iban?: string;        // IBAN для оплаты (из текста фактуры)
+  invoice_number: string;        // Číslo faktúry (номер фактуры поставщика)
+  variable_symbol?: string;      // Variabilný symbol для платежа
+  constant_symbol?: string;      // Konštantný symbol
+  issue_date: string;            // Dátum vystavenia (YYYY-MM-DD)
+  due_date: string;              // Dátum splatnosti — до какого числа платить (YYYY-MM-DD)
+  amount_without_vat: number;    // Сумма без DPH (€)
+  vat_rate: number;              // Ставка DPH (23, 19, 5, 0)
+  vat_amount: number;            // Сумма DPH (€)
+  amount_with_vat: number;       // Итого к уплате (€)
+  currency: string;              // EUR
+  project_id?: string;           // Объект, на который списывается фактура
+  category: ExpenseCategory;     // Категория расхода
+  payment_status: SupplierInvoiceStatus;
+  paid_amount: number;           // Сколько уже уплачено (€)
+  paid_at?: string;              // КОГДА уплачено (YYYY-MM-DD)
+  paid_by?: string;              // Кто / чем уплатил (Керим, Карта фирмы, Банк...)
+  payment_method?: 'bank_transfer' | 'cash' | 'card';
+  source: SupplierInvoiceSource;
+  email_from?: string;           // Отправитель письма (faktury@hornbach.sk)
+  email_subject?: string;        // Тема письма
+  email_message_id?: string;     // ID письма Gmail — защита от дублей
+  email_thread_id?: string;      // ID переписки Gmail — для кнопки «Открыть письмо»
+  email_received_at?: string;    // Когда письмо пришло на почту
+  attachment_name?: string;      // Имя вложения (faktura_2026001.pdf)
+  attachment_url?: string;       // Ссылка на PDF (Google Drive) или data:URL
+  expense_id?: string;           // ID расхода, если фактура проведена в «Расходы и Чеки»
+  notes?: string;
   created_at: string;
   updated_at: string;
 }

@@ -99,6 +99,20 @@ export const PROJECT_METADATA: Record<string, { title: string; client: string; a
   'Urminsky': { title: 'Ремонт объекта Urminský', client: 'Клиент Urminský', address: 'Bratislava', city: 'Bratislava' },
 };
 
+/**
+ * Объектом может быть только осмысленное название с буквами.
+ * Суммы, даты и прочерки в колонке объекта означают, что в этой строке
+ * формы объект не указан — такую запись ведем как общий расход фирмы.
+ */
+export function isLikelyProjectName(value?: string): boolean {
+  const v = (value || '').trim();
+  if (!v || v === '-' || v === '—') return false;
+  if (v.length < 2) return false;
+  if (/^[\d\s.,:/\\-]+$/.test(v)) return false;
+  if (!/[a-zа-яё]/i.test(v)) return false;
+  return true;
+}
+
 
 export function normalizeProjectKey(str: string): string {
   if (!str) return '';
@@ -327,6 +341,7 @@ export async function syncFromGoogleSheets(customUrl?: string) {
       const isoDate = parseDateToIso(item.date);
 
       if (item.isGeneral) {
+
         // GENERAL OVERHEAD (Not a client project)
         if (item.type === 'Дохід') {
           invoices.push({

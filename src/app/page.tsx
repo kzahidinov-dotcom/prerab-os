@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Client, 
   Project, 
@@ -11,7 +11,8 @@ import {
   WorkLog, 
   CompanySettings,
   Task,
-  UserProfile 
+  UserProfile,
+  SupplierInvoice
 } from '@/types';
 import { storage } from '@/lib/storage';
 import { Sidebar, NavTab } from '@/components/layout/Sidebar';
@@ -23,11 +24,13 @@ import { CrmTab } from '@/components/crm/CrmTab';
 import { BudgetEstimatorModal } from '@/components/budget/BudgetEstimatorModal';
 import { CostTrackingTab } from '@/components/costs/CostTrackingTab';
 import { InvoicesTab } from '@/components/invoices/InvoicesTab';
+import { SupplierInvoicesTab, isOverdue } from '@/components/supplier-invoices/SupplierInvoicesTab';
 import { WorkersTab } from '@/components/workers/WorkersTab';
 import { SettingsTab } from '@/components/settings/SettingsTab';
 import { NewProjectModal } from '@/components/modals/NewProjectModal';
 import { NewExpenseModal } from '@/components/modals/NewExpenseModal';
 import { NewInvoiceModal } from '@/components/modals/NewInvoiceModal';
+import { SupplierInvoiceModal } from '@/components/modals/SupplierInvoiceModal';
 import { auth } from '@/lib/auth';
 import { LoginScreen } from '@/components/auth/LoginScreen';
 import { DriverWorkspace } from '@/components/driver/DriverWorkspace';
@@ -38,6 +41,7 @@ import { GanttChart } from '@/components/planner/GanttChart';
 import { NotificationToast, showToast } from '@/components/ui/NotificationToast';
 import { TeamReportModal } from '@/components/reports/TeamReportModal';
 import { checkAndPerformFridayBackup } from '@/lib/backup';
+import { FinanceDashboardData, loadFinanceDashboard, getCachedFinanceDashboard } from '@/lib/finance-dashboard';
 
 export default function Home() {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
@@ -51,11 +55,14 @@ export default function Home() {
   const [budgets, setBudgets] = useState<BudgetEstimate[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [supplierInvoices, setSupplierInvoices] = useState<SupplierInvoice[]>([]);
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [workLogs, setWorkLogs] = useState<WorkLog[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [scheduleStages, setScheduleStages] = useState<Task[]>([]);
   const [settings, setSettings] = useState<CompanySettings>(storage.getSettings());
+  // Финансовые итоги ведутся вручную в Google Таблице — сюда они только зеркалятся
+  const [finance, setFinance] = useState<FinanceDashboardData | null>(null);
 
   // Modals state
   const [isNewTaskModalOpen, setIsNewTaskModalOpen] = useState(false);
@@ -69,8 +76,13 @@ export default function Home() {
   const [newExpenseInitialProject, setNewExpenseInitialProject] = useState<string | undefined>(undefined);
   const [isNewInvoiceOpen, setIsNewInvoiceOpen] = useState(false);
   const [newInvoiceInitialProject, setNewInvoiceInitialProject] = useState<string | undefined>(undefined);
+  const [isSupplierInvoiceModalOpen, setIsSupplierInvoiceModalOpen] = useState(false);
+  const [supplierInvoiceForEdit, setSupplierInvoiceForEdit] = useState<SupplierInvoice | undefined>(undefined);
   const [isBudgetEstimatorOpen, setIsBudgetEstimatorOpen] = useState(false);
   const [activeBudgetForEdit, setActiveBudgetForEdit] = useState<BudgetEstimate | undefined>(undefined);
+
+  // Разовая чистка ошибочных объектов за сессию
+  const junkProjectsChecked = useRef(false);
 
   // Initialize and load data
   const loadAllData = () => {
@@ -81,6 +93,7 @@ export default function Home() {
     setBudgets(storage.getBudgets());
     setExpenses(storage.getExpenses());
     setInvoices(storage.getInvoices());
+    setSupplierInvoices(storage.getSupplierInvoices());
     setWorkers(storage.getWorkers());
     setWorkLogs(storage.getWorkLogs());
     setTasks(storage.getTasks());
@@ -100,6 +113,46 @@ export default function Home() {
         const ok = await storage.fetchAllFromCloud();
         if (ok) {
           loadAllData();
+        }
+
+        // Убираем объекты, ошибочно созданные прежней синхронизацией
+        // из числовых значений («Объект 520», «Объект 166,05»)
+        if (!junkProjectsChecked.current) {
+          junkProjectsChecked.current = true;
+          const removed = await storage.purgeJunkProjects();
+          if (removed > 0) {
+            loadAllData();
+            showToast({
+              title: '🧹 Список объектов очищен',
+              message: `Удалено ошибочных объектов: ${removed}. Их суммы перенесены в общие расходы фирмы.`,
+              type: 'sync',
+              duration: 8000,
+            });
+          }
+
+          // Записи Google Формы дублировались: вебхуком и через лист таблицы
+          const dupes = await storage.purgeWebhookDuplicates();
+          if (dupes > 0) {
+            loadAllData();
+            showToast({
+              title: '🧹 Убраны двойные записи',
+              message: `Удалено дублей из Google Формы: ${dupes}. Эти записи остаются в таблице и берутся из нее.`,
+              type: 'sync',
+              duration: 8000,
+            });
+          }
+
+          // Раздел фактур не участвует в финансах
+          const cleared = await storage.removeSupplierInvoiceExpenses();
+          if (cleared > 0) {
+            loadAllData();
+            showToast({
+              title: '📊 Финансы считаются только по Google Таблице',
+              message: `Убрано из расходов фактур: ${cleared}. Сами фактуры остались в разделе «Фактуры на уплату».`,
+              type: 'sync',
+              duration: 8000,
+            });
+          }
         }
       } catch (err) {
         console.warn('Silent Supabase fetch skipped:', err);
@@ -133,6 +186,19 @@ export default function Home() {
 
     // 5. Periodic background sync from Google Sheets every 60 seconds
     const interval = setInterval(runSilentSync, 60000);
+
+    // 5b. Финансовый дашборд фирмы — готовые цифры из листа таблицы
+    setFinance(getCachedFinanceDashboard());
+    const runFinanceSync = async () => {
+      try {
+        const data = await loadFinanceDashboard(storage.getSettings().finance_dashboard_url);
+        if (data) setFinance(data);
+      } catch (err) {
+        console.warn('Финансовый дашборд из таблицы недоступен:', err);
+      }
+    };
+    runFinanceSync();
+    const financeInterval = setInterval(runFinanceSync, 60000);
 
     // 6. Automatic Friday backup check
     checkAndPerformFridayBackup();
@@ -169,6 +235,7 @@ export default function Home() {
     return () => {
       clearInterval(interval);
       clearInterval(cloudInterval);
+      clearInterval(financeInterval);
       window.removeEventListener('prerab_storage_update', handleStorageUpdate);
       window.removeEventListener('prerab_auth_change', handleAuthChange);
       window.removeEventListener('prerab_cloud_sync_received', handleCloudSyncReceived);
@@ -272,6 +339,30 @@ export default function Home() {
   const handleDeleteInvoice = (invoiceId: string) => {
     storage.deleteInvoice(invoiceId);
     setInvoices(storage.getInvoices());
+  };
+
+  // Фактуры на уплату (входящие фактуры поставщиков)
+  const handleSaveSupplierInvoice = (invoice: SupplierInvoice) => {
+    storage.saveSupplierInvoice(invoice);
+    setSupplierInvoices(storage.getSupplierInvoices());
+  };
+
+  const handleDeleteSupplierInvoice = (invoiceId: string) => {
+    storage.deleteSupplierInvoice(invoiceId);
+    setSupplierInvoices(storage.getSupplierInvoices());
+  };
+
+  const handleMarkSupplierInvoicePaid = (
+    invoiceId: string,
+    payment: { paid_at: string; paid_amount: number; paid_by: string; payment_method: 'bank_transfer' | 'cash' | 'card' }
+  ) => {
+    storage.markSupplierInvoicePaid(invoiceId, payment);
+    setSupplierInvoices(storage.getSupplierInvoices());
+  };
+
+  const handleMarkSupplierInvoiceUnpaid = (invoiceId: string) => {
+    storage.markSupplierInvoiceUnpaid(invoiceId);
+    setSupplierInvoices(storage.getSupplierInvoices());
   };
 
   const handleSaveWorker = (worker: Worker) => {
@@ -401,6 +492,8 @@ export default function Home() {
   };
 
   const unpaidInvoicesCount = (invoices || []).filter(i => i && i.payment_status !== 'paid').length;
+  const unpaidSupplierInvoices = (supplierInvoices || []).filter(i => i && i.payment_status !== 'paid');
+  const overdueSupplierInvoicesCount = unpaidSupplierInvoices.filter(isOverdue).length;
   const selectedProject = (projects || []).find(p => p && p.id === selectedProjectId);
   const selectedProjectClient = (clients || []).find(c => c && c.id === selectedProject?.client_id);
 
@@ -466,6 +559,8 @@ export default function Home() {
         unpaidInvoicesCount={unpaidInvoicesCount}
         pendingExpensesCount={(expenses || []).length}
         tasksCount={(tasks || []).filter(t => t && t.status !== 'done').length}
+        unpaidSupplierInvoicesCount={unpaidSupplierInvoices.length}
+        overdueSupplierInvoicesCount={overdueSupplierInvoicesCount}
       />
 
       {/* Main Content Area */}
@@ -508,6 +603,7 @@ export default function Home() {
         <main id="main-scroll-container" className="flex-1 p-6 overflow-y-auto">
           {activeTab === 'dashboard' && (
             <OverviewTab
+              finance={finance}
               projects={projects}
               clients={clients}
               expenses={expenses}
@@ -604,6 +700,38 @@ export default function Home() {
               onOpenNewInvoice={(pId) => {
                 setNewInvoiceInitialProject(pId);
                 setIsNewInvoiceOpen(true);
+              }}
+            />
+          )}
+
+          {activeTab === 'supplier_invoices' && (
+            <SupplierInvoicesTab
+              supplierInvoices={supplierInvoices}
+              projects={projects}
+              settings={settings}
+              onSaveSupplierInvoice={handleSaveSupplierInvoice}
+              onDeleteSupplierInvoice={handleDeleteSupplierInvoice}
+              onMarkPaid={handleMarkSupplierInvoicePaid}
+              onMarkUnpaid={handleMarkSupplierInvoiceUnpaid}
+              onOpenNewInvoice={() => {
+                setSupplierInvoiceForEdit(undefined);
+                setIsSupplierInvoiceModalOpen(true);
+              }}
+              onEditInvoice={(inv) => {
+                setSupplierInvoiceForEdit(inv);
+                setIsSupplierInvoiceModalOpen(true);
+              }}
+              onRefresh={async () => {
+                const ok = await storage.fetchAllFromCloud();
+                loadAllData();
+                showToast({
+                  title: ok ? '📬 Почта проверена' : 'Облако недоступно',
+                  message: ok
+                    ? 'Список фактур на уплату обновлен из облака.'
+                    : 'Не удалось связаться с облачной базой. Проверьте интернет.',
+                  type: 'sync',
+                  duration: 4000,
+                });
               }}
             />
           )}
@@ -708,6 +836,19 @@ export default function Home() {
           initialProjectId={newInvoiceInitialProject}
           onClose={() => setIsNewInvoiceOpen(false)}
           onSave={handleSaveInvoice}
+        />
+      )}
+
+      {/* MODAL 5b: Фактура на уплату (входящая от поставщика) */}
+      {isSupplierInvoiceModalOpen && (
+        <SupplierInvoiceModal
+          invoice={supplierInvoiceForEdit}
+          projects={projects}
+          onClose={() => {
+            setIsSupplierInvoiceModalOpen(false);
+            setSupplierInvoiceForEdit(undefined);
+          }}
+          onSave={handleSaveSupplierInvoice}
         />
       )}
 
