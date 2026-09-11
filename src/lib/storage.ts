@@ -9,9 +9,11 @@ import {
   CompanySettings,
   Task,
   ScheduleTemplate,
-  ScheduleTemplateStage
+  ScheduleTemplateStage,
+  SupplierInvoice
 } from '@/types';
 import { getSupabaseClient } from './supabase';
+import { invoiceDedupeKey } from './invoice-parser';
 
 const STORAGE_KEYS = {
   CLIENTS: 'prerab_clients_v1',
@@ -25,6 +27,7 @@ const STORAGE_KEYS = {
   TASKS: 'prerab_tasks_v1',
   SCHEDULE_TEMPLATES: 'prerab_schedule_templates_v1',
   SCHEDULE_STAGES: 'prerab_schedule_stages_v1',
+  SUPPLIER_INVOICES: 'prerab_supplier_invoices_v1',
 };
 
 export const DEFAULT_COMPANY_SETTINGS: CompanySettings = {
@@ -922,6 +925,220 @@ class StorageManager {
     this.deleteFromSupabase('invoices', invoiceId);
   }
 
+  // -------------------------------------------------------------
+  // Фактуры на уплату (Входящие фактуры от поставщиков / Došlé faktúry)
+  // -------------------------------------------------------------
+  public getSupplierInvoices(): SupplierInvoice[] {
+    const res = this.getItem<SupplierInvoice[]>(STORAGE_KEYS.SUPPLIER_INVOICES, []);
+    return Array.isArray(res) ? res : [];
+  }
+
+  public saveSupplierInvoices(list: SupplierInvoice[]): void {
+    const normalized = (Array.isArray(list) ? list : []).map(i => ({
+      ...i,
+      currency: i.currency || 'EUR',
+      paid_amount: Number(i.paid_amount) || 0,
+      payment_status: i.payment_status || 'unpaid',
+    }));
+    this.setItem(STORAGE_KEYS.SUPPLIER_INVOICES, normalized);
+    this.syncSupplierInvoicesToCloud(normalized);
+  }
+
+  public saveSupplierInvoice(invoice: SupplierInvoice): void {
+    const current = this.getSupplierInvoices();
+    const idx = current.findIndex(i => i.id === invoice.id);
+    const stamped = { ...invoice, updated_at: new Date().toISOString() };
+    let updated: SupplierInvoice[];
+    if (idx >= 0) {
+      updated = [...current];
+      updated[idx] = stamped;
+    } else {
+      updated = [stamped, ...current];
+    }
+    this.saveSupplierInvoices(updated);
+  }
+
+  public deleteSupplierInvoice(invoiceId: string): void {
+    const remaining = this.getSupplierInvoices().filter(i => i.id !== invoiceId);
+    this.saveSupplierInvoices(remaining);
+    this.deleteFromSupabase('supplier_invoices', invoiceId);
+  }
+
+  // Отметить фактуру уплаченной (с фиксацией даты и способа оплаты)
+  public markSupplierInvoicePaid(
+    invoiceId: string,
+    payment: { paid_at?: string; paid_amount?: number; paid_by?: string; payment_method?: 'bank_transfer' | 'cash' | 'card' }
+  ): SupplierInvoice | null {
+    const list = this.getSupplierInvoices();
+    const idx = list.findIndex(i => i.id === invoiceId);
+    if (idx < 0) return null;
+
+    const invoice = list[idx];
+    const total = Number(invoice.amount_with_vat) || 0;
+    const paidAmount = payment.paid_amount !== undefined ? Number(payment.paid_amount) || 0 : total;
+    const status: SupplierInvoice['payment_status'] =
+      paidAmount <= 0 ? 'unpaid' : (paidAmount + 0.009 < total ? 'partial' : 'paid');
+
+    const updatedInvoice: SupplierInvoice = {
+      ...invoice,
+      payment_status: status,
+      paid_amount: paidAmount,
+      paid_at: status === 'unpaid' ? undefined : (payment.paid_at || new Date().toISOString().split('T')[0]),
+      paid_by: status === 'unpaid' ? undefined : (payment.paid_by || invoice.paid_by),
+      payment_method: status === 'unpaid' ? invoice.payment_method : (payment.payment_method || invoice.payment_method || 'bank_transfer'),
+      updated_at: new Date().toISOString(),
+    };
+
+    const updated = [...list];
+    updated[idx] = updatedInvoice;
+    this.saveSupplierInvoices(updated);
+    return updatedInvoice;
+  }
+
+  // Снять отметку об оплате (ошибочно отметили)
+  public markSupplierInvoiceUnpaid(invoiceId: string): SupplierInvoice | null {
+    return this.markSupplierInvoicePaid(invoiceId, { paid_amount: 0 });
+  }
+
+  // Добавление фактур с почты без дублей (по Message-ID письма или номеру фактуры)
+  public addSupplierInvoices(incoming: SupplierInvoice[]): { added: number; skipped: number } {
+    const current = this.getSupplierInvoices();
+    const keys = new Set(current.map(i => invoiceDedupeKey(i)));
+    const fresh: SupplierInvoice[] = [];
+    let skipped = 0;
+
+    (incoming || []).forEach(inv => {
+      const key = invoiceDedupeKey(inv);
+      if (keys.has(key) || current.some(c => c.id === inv.id)) {
+        skipped++;
+        return;
+      }
+      keys.add(key);
+      fresh.push(inv);
+    });
+
+    if (fresh.length > 0) {
+      this.saveSupplierInvoices([...fresh, ...current]);
+    }
+    return { added: fresh.length, skipped };
+  }
+
+  // Провести уплаченную фактуру в «Расходы и Чеки» (чтобы попала в себестоимость объекта)
+  public pushSupplierInvoiceToExpenses(invoiceId: string): Expense | null {
+    const invoice = this.getSupplierInvoices().find(i => i.id === invoiceId);
+    if (!invoice) return null;
+    if (invoice.expense_id && this.getExpenses().some(e => e.id === invoice.expense_id)) return null;
+
+    const expense: Expense = {
+      id: `exp-sinv-${invoice.id}`,
+      project_id: invoice.project_id || '',
+      category: invoice.category || 'materials',
+      vendor: invoice.supplier_name,
+      description: `Фактура ${invoice.invoice_number} (${invoice.supplier_name})`,
+      amount_without_vat: invoice.amount_without_vat,
+      vat_rate: invoice.vat_rate,
+      vat_amount: invoice.vat_amount,
+      amount_with_vat: invoice.amount_with_vat,
+      receipt_number: invoice.invoice_number,
+      receipt_photo_url: invoice.attachment_url,
+      date: invoice.paid_at || invoice.issue_date,
+      paid_by: invoice.paid_by || 'Банковский перевод',
+      status: 'approved',
+    };
+
+    const expenses = this.getExpenses();
+    const idx = expenses.findIndex(e => e.id === expense.id);
+    const updatedExpenses = idx >= 0
+      ? expenses.map(e => (e.id === expense.id ? expense : e))
+      : [expense, ...expenses];
+    this.saveExpenses(updatedExpenses);
+
+    this.saveSupplierInvoice({ ...invoice, expense_id: expense.id });
+    return expense;
+  }
+
+  // Облачная синхронизация фактур на уплату
+  public async syncSupplierInvoicesToCloud(list: SupplierInvoice[]): Promise<void> {
+    try {
+      const sb = getSupabaseClient();
+      if (!sb) return;
+
+      // 1. Отдельная таблица supplier_invoices (если создана из supabase/schema.sql)
+      try {
+        if (list.length > 0) {
+          const sanitized = list.map(i => ({ ...i, project_id: i.project_id && i.project_id.trim() ? i.project_id : null }));
+          await sb.from('supplier_invoices').upsert(sanitized, { onConflict: 'id' });
+        }
+      } catch (err) {
+        // Таблицы может не быть — работаем через универсальный документ ниже
+      }
+
+      // 2. Универсальный облачный документ (работает всегда, без миграций базы)
+      const doc = {
+        id: 'bgt-system-supplier-invoices-cloud',
+        project_id: null,
+        title: 'Cloud Supplier Invoices Storage (Faktúry na úhradu)',
+        items: list,
+        total_labor_cost: 0,
+        total_material_cost: 0,
+        total_cost: 0,
+        total_client_price: 0,
+        vat_rate: 23,
+        vat_amount: 0,
+        total_with_vat: 0,
+        margin_amount: 0,
+        margin_percent: 0,
+        is_reverse_charge: false,
+        status: 'approved',
+        updated_at: new Date().toISOString()
+      };
+      await sb.from('budgets').upsert([doc], { onConflict: 'id' });
+
+      this.broadcastCloudChange('supplier_invoices', {
+        title: 'Фактуры на уплату',
+        action: 'Обновление фактур поставщиков',
+        description: 'Изменен список входящих фактур или статус оплаты'
+      });
+    } catch (e) {
+      console.warn('Supplier invoices cloud sync error:', e);
+    }
+  }
+
+  public async pullSupplierInvoicesFromCloud(): Promise<SupplierInvoice[] | null> {
+    try {
+      const sb = getSupabaseClient();
+      if (!sb) return null;
+
+      // 1. Отдельная таблица
+      try {
+        const { data, error } = await sb
+          .from('supplier_invoices')
+          .select('*')
+          .order('due_date', { ascending: true })
+          .range(0, 9999);
+        if (!error && data && data.length > 0) {
+          return (data as any[]).map(i => ({ ...i, project_id: i.project_id || '' })) as SupplierInvoice[];
+        }
+      } catch (e) {
+        // fallback
+      }
+
+      // 2. Универсальный документ в budgets
+      const { data: bData, error: bErr } = await sb
+        .from('budgets')
+        .select('*')
+        .eq('id', 'bgt-system-supplier-invoices-cloud')
+        .single();
+
+      if (!bErr && bData && Array.isArray(bData.items)) {
+        return bData.items as SupplierInvoice[];
+      }
+      return null;
+    } catch (e) {
+      return null;
+    }
+  }
+
   // Workers
   public getWorkers(): Worker[] {
     const res = this.getItem<Worker[]>(STORAGE_KEYS.WORKERS, []);
@@ -1250,6 +1467,8 @@ class StorageManager {
         copy.client_id = copy.client_id && copy.client_id.trim() ? copy.client_id : null;
       } else if (table === 'budgets') {
         copy.project_id = copy.project_id && copy.project_id.trim() ? copy.project_id : null;
+      } else if (table === 'supplier_invoices') {
+        copy.project_id = copy.project_id && copy.project_id.trim() ? copy.project_id : null;
       } else if (table === 'work_logs') {
         copy.project_id = copy.project_id && copy.project_id.trim() ? copy.project_id : null;
         copy.worker_id = copy.worker_id && copy.worker_id.trim() ? copy.worker_id : null;
@@ -1282,6 +1501,9 @@ class StorageManager {
         } else if (table === 'invoices') {
           title = 'Счета (Faktúry)';
           description = 'Обновлен счет или статус оплаты';
+        } else if (table === 'supplier_invoices') {
+          title = 'Фактуры на уплату';
+          description = 'Обновлена входящая фактура поставщика';
         } else if (table === 'clients') {
           title = 'Клиенты (CRM)';
           description = 'Обновлены данные заказчика';
@@ -1320,7 +1542,7 @@ class StorageManager {
     if (!sb) return false;
 
     try {
-      const [cRes, pRes, bRes, eRes, iRes, wRes, wlRes, cloudTasks, cloudTemplates, cloudStages] = await Promise.all([
+      const [cRes, pRes, bRes, eRes, iRes, wRes, wlRes, cloudTasks, cloudTemplates, cloudStages, cloudSupplierInvoices] = await Promise.all([
         sb.from('clients').select('*').range(0, 9999),
         sb.from('projects').select('*').range(0, 9999),
         sb.from('budgets').select('*').range(0, 9999),
@@ -1331,6 +1553,7 @@ class StorageManager {
         this.pullTasksFromCloud(),
         this.pullScheduleTemplatesFromCloud(),
         this.pullScheduleStagesFromCloud(),
+        this.pullSupplierInvoicesFromCloud(),
       ]);
 
       let cloudSettings: CompanySettings | null = null;
@@ -1345,7 +1568,8 @@ class StorageManager {
           } else if (
             b.id !== 'bgt-system-tasks-cloud' && 
             b.id !== 'bgt-system-schedule-templates-cloud' &&
-            b.id !== 'bgt-system-schedule-stages-cloud'
+            b.id !== 'bgt-system-schedule-stages-cloud' &&
+            b.id !== 'bgt-system-supplier-invoices-cloud'
           ) {
             realBudgets.push(b);
           }
@@ -1387,6 +1611,9 @@ class StorageManager {
       if (cloudStages && cloudStages.length > 0) {
         this.setItem(STORAGE_KEYS.SCHEDULE_STAGES, cloudStages);
       }
+      if (cloudSupplierInvoices) {
+        this.setItem(STORAGE_KEYS.SUPPLIER_INVOICES, cloudSupplierInvoices);
+      }
       if (cloudSettings) {
         this.setItem(STORAGE_KEYS.SETTINGS, cloudSettings);
       }
@@ -1425,6 +1652,7 @@ class StorageManager {
       const tasks = this.getTasks();
       const templates = this.getScheduleTemplates();
       const stages = this.getScheduleStages();
+      const supplierInvoices = this.getSupplierInvoices();
 
       const promises = [];
       if (clients.length > 0) promises.push(sb.from('clients').upsert(this.sanitizeForSupabase('clients', clients), { onConflict: 'id' }));
@@ -1437,6 +1665,7 @@ class StorageManager {
       if (tasks.length > 0) promises.push(this.syncTasksToCloud(tasks));
       if (templates.length > 0) promises.push(this.syncScheduleTemplatesToCloud(templates));
       if (stages.length > 0) promises.push(this.syncScheduleStagesToCloud(stages));
+      if (supplierInvoices.length > 0) promises.push(this.syncSupplierInvoicesToCloud(supplierInvoices));
 
       await Promise.all(promises);
 
@@ -1458,6 +1687,7 @@ class StorageManager {
         budgets: this.getBudgets(),
         expenses: this.getExpenses(),
         invoices: this.getInvoices(),
+        supplier_invoices: this.getSupplierInvoices(),
         workers: this.getWorkers(),
         workLogs: this.getWorkLogs(),
         settings: this.getSettings(),
@@ -1480,6 +1710,7 @@ class StorageManager {
       if (parsed.data.budgets) this.saveBudgets(parsed.data.budgets);
       if (parsed.data.expenses) this.saveExpenses(parsed.data.expenses);
       if (parsed.data.invoices) this.saveInvoices(parsed.data.invoices);
+      if (parsed.data.supplier_invoices) this.saveSupplierInvoices(parsed.data.supplier_invoices);
       if (parsed.data.workers) this.saveWorkers(parsed.data.workers);
       if (parsed.data.workLogs) this.saveWorkLogs(parsed.data.workLogs);
       if (parsed.data.settings) this.saveSettings(parsed.data.settings);
@@ -1503,6 +1734,7 @@ class StorageManager {
     this.setItem(STORAGE_KEYS.BUDGETS, []);
     this.setItem(STORAGE_KEYS.EXPENSES, []);
     this.setItem(STORAGE_KEYS.INVOICES, []);
+    this.setItem(STORAGE_KEYS.SUPPLIER_INVOICES, []);
     this.setItem(STORAGE_KEYS.WORKERS, []);
     this.setItem(STORAGE_KEYS.WORK_LOGS, []);
     this.setItem(STORAGE_KEYS.TASKS, []);

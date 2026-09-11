@@ -68,6 +68,7 @@ export const Navbar: React.FC<NavbarProps> = ({
       case 'budget': return 'Сметчик (Výkaz výmer) и расчет маржи';
       case 'costs': return 'Учет расходов, чеков и себестоимости';
       case 'invoices': return 'Выставление счетов (Faktúry) и словацкий DPH';
+      case 'supplier_invoices': return 'Фактуры на уплату от поставщиков (автоприем с почты)';
       case 'workers': return 'Мастера, бригады и табель зарплат';
       case 'settings': return 'Реквизиты компании, облако и резервные копии';
     }

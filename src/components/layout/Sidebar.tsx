@@ -17,7 +17,8 @@ import {
   CheckSquare,
   CalendarRange,
   ArrowUp,
-  ArrowDown
+  ArrowDown,
+  Inbox
 } from 'lucide-react';
 import { scrollToTop, scrollToBottom } from '@/lib/scroll';
 
@@ -30,6 +31,7 @@ export type NavTab =
   | 'budget' 
   | 'costs' 
   | 'invoices' 
+  | 'supplier_invoices'
   | 'workers' 
   | 'settings';
 
@@ -40,6 +42,8 @@ interface SidebarProps {
   unpaidInvoicesCount: number;
   pendingExpensesCount: number;
   tasksCount?: number;
+  unpaidSupplierInvoicesCount?: number;
+  overdueSupplierInvoicesCount?: number;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -49,6 +53,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   unpaidInvoicesCount,
   pendingExpensesCount,
   tasksCount,
+  unpaidSupplierInvoicesCount,
+  overdueSupplierInvoicesCount,
 }) => {
   const navItems = [
     {
@@ -104,6 +110,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
       icon: FileText,
       badge: unpaidInvoicesCount > 0 ? unpaidInvoicesCount : null,
       badgeColor: 'bg-rose-500 text-white',
+    },
+    {
+      id: 'supplier_invoices' as NavTab,
+      label: 'Фактуры на уплату',
+      icon: Inbox,
+      badge: unpaidSupplierInvoicesCount && unpaidSupplierInvoicesCount > 0 ? unpaidSupplierInvoicesCount : null,
+      badgeColor: overdueSupplierInvoicesCount && overdueSupplierInvoicesCount > 0
+        ? 'bg-rose-500 text-white font-black animate-pulse'
+        : 'bg-emerald-500 text-white font-bold',
     },
     {
       id: 'workers' as NavTab,

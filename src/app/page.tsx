@@ -11,7 +11,8 @@ import {
   WorkLog, 
   CompanySettings,
   Task,
-  UserProfile 
+  UserProfile,
+  SupplierInvoice
 } from '@/types';
 import { storage } from '@/lib/storage';
 import { Sidebar, NavTab } from '@/components/layout/Sidebar';
@@ -23,11 +24,13 @@ import { CrmTab } from '@/components/crm/CrmTab';
 import { BudgetEstimatorModal } from '@/components/budget/BudgetEstimatorModal';
 import { CostTrackingTab } from '@/components/costs/CostTrackingTab';
 import { InvoicesTab } from '@/components/invoices/InvoicesTab';
+import { SupplierInvoicesTab, isOverdue } from '@/components/supplier-invoices/SupplierInvoicesTab';
 import { WorkersTab } from '@/components/workers/WorkersTab';
 import { SettingsTab } from '@/components/settings/SettingsTab';
 import { NewProjectModal } from '@/components/modals/NewProjectModal';
 import { NewExpenseModal } from '@/components/modals/NewExpenseModal';
 import { NewInvoiceModal } from '@/components/modals/NewInvoiceModal';
+import { SupplierInvoiceModal } from '@/components/modals/SupplierInvoiceModal';
 import { auth } from '@/lib/auth';
 import { LoginScreen } from '@/components/auth/LoginScreen';
 import { DriverWorkspace } from '@/components/driver/DriverWorkspace';
@@ -51,6 +54,7 @@ export default function Home() {
   const [budgets, setBudgets] = useState<BudgetEstimate[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [supplierInvoices, setSupplierInvoices] = useState<SupplierInvoice[]>([]);
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [workLogs, setWorkLogs] = useState<WorkLog[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -69,6 +73,8 @@ export default function Home() {
   const [newExpenseInitialProject, setNewExpenseInitialProject] = useState<string | undefined>(undefined);
   const [isNewInvoiceOpen, setIsNewInvoiceOpen] = useState(false);
   const [newInvoiceInitialProject, setNewInvoiceInitialProject] = useState<string | undefined>(undefined);
+  const [isSupplierInvoiceModalOpen, setIsSupplierInvoiceModalOpen] = useState(false);
+  const [supplierInvoiceForEdit, setSupplierInvoiceForEdit] = useState<SupplierInvoice | undefined>(undefined);
   const [isBudgetEstimatorOpen, setIsBudgetEstimatorOpen] = useState(false);
   const [activeBudgetForEdit, setActiveBudgetForEdit] = useState<BudgetEstimate | undefined>(undefined);
 
@@ -81,6 +87,7 @@ export default function Home() {
     setBudgets(storage.getBudgets());
     setExpenses(storage.getExpenses());
     setInvoices(storage.getInvoices());
+    setSupplierInvoices(storage.getSupplierInvoices());
     setWorkers(storage.getWorkers());
     setWorkLogs(storage.getWorkLogs());
     setTasks(storage.getTasks());
@@ -274,6 +281,44 @@ export default function Home() {
     setInvoices(storage.getInvoices());
   };
 
+  // Фактуры на уплату (входящие фактуры поставщиков)
+  const handleSaveSupplierInvoice = (invoice: SupplierInvoice) => {
+    storage.saveSupplierInvoice(invoice);
+    setSupplierInvoices(storage.getSupplierInvoices());
+  };
+
+  const handleDeleteSupplierInvoice = (invoiceId: string) => {
+    storage.deleteSupplierInvoice(invoiceId);
+    setSupplierInvoices(storage.getSupplierInvoices());
+  };
+
+  const handleMarkSupplierInvoicePaid = (
+    invoiceId: string,
+    payment: { paid_at: string; paid_amount: number; paid_by: string; payment_method: 'bank_transfer' | 'cash' | 'card' }
+  ) => {
+    storage.markSupplierInvoicePaid(invoiceId, payment);
+    setSupplierInvoices(storage.getSupplierInvoices());
+  };
+
+  const handleMarkSupplierInvoiceUnpaid = (invoiceId: string) => {
+    storage.markSupplierInvoiceUnpaid(invoiceId);
+    setSupplierInvoices(storage.getSupplierInvoices());
+  };
+
+  const handlePushSupplierInvoiceToExpenses = (invoiceId: string) => {
+    const created = storage.pushSupplierInvoiceToExpenses(invoiceId);
+    setSupplierInvoices(storage.getSupplierInvoices());
+    setExpenses(storage.getExpenses());
+    showToast({
+      title: created ? '🧾 Фактура проведена в расходы' : 'Фактура уже проведена',
+      message: created
+        ? `${created.vendor}: ${created.amount_with_vat.toFixed(2)} € записано в «Расходы и Чеки»`
+        : 'Эта фактура уже есть в разделе «Расходы и Чеки».',
+      type: 'sync',
+      duration: 5000,
+    });
+  };
+
   const handleSaveWorker = (worker: Worker) => {
     const existing = workers.findIndex(w => w.id === worker.id);
     let updated: Worker[];
@@ -401,6 +446,8 @@ export default function Home() {
   };
 
   const unpaidInvoicesCount = (invoices || []).filter(i => i && i.payment_status !== 'paid').length;
+  const unpaidSupplierInvoices = (supplierInvoices || []).filter(i => i && i.payment_status !== 'paid');
+  const overdueSupplierInvoicesCount = unpaidSupplierInvoices.filter(isOverdue).length;
   const selectedProject = (projects || []).find(p => p && p.id === selectedProjectId);
   const selectedProjectClient = (clients || []).find(c => c && c.id === selectedProject?.client_id);
 
@@ -466,6 +513,8 @@ export default function Home() {
         unpaidInvoicesCount={unpaidInvoicesCount}
         pendingExpensesCount={(expenses || []).length}
         tasksCount={(tasks || []).filter(t => t && t.status !== 'done').length}
+        unpaidSupplierInvoicesCount={unpaidSupplierInvoices.length}
+        overdueSupplierInvoicesCount={overdueSupplierInvoicesCount}
       />
 
       {/* Main Content Area */}
@@ -608,6 +657,39 @@ export default function Home() {
             />
           )}
 
+          {activeTab === 'supplier_invoices' && (
+            <SupplierInvoicesTab
+              supplierInvoices={supplierInvoices}
+              projects={projects}
+              settings={settings}
+              onSaveSupplierInvoice={handleSaveSupplierInvoice}
+              onDeleteSupplierInvoice={handleDeleteSupplierInvoice}
+              onMarkPaid={handleMarkSupplierInvoicePaid}
+              onMarkUnpaid={handleMarkSupplierInvoiceUnpaid}
+              onPushToExpenses={handlePushSupplierInvoiceToExpenses}
+              onOpenNewInvoice={() => {
+                setSupplierInvoiceForEdit(undefined);
+                setIsSupplierInvoiceModalOpen(true);
+              }}
+              onEditInvoice={(inv) => {
+                setSupplierInvoiceForEdit(inv);
+                setIsSupplierInvoiceModalOpen(true);
+              }}
+              onRefresh={async () => {
+                const ok = await storage.fetchAllFromCloud();
+                loadAllData();
+                showToast({
+                  title: ok ? '📬 Почта проверена' : 'Облако недоступно',
+                  message: ok
+                    ? 'Список фактур на уплату обновлен из облака.'
+                    : 'Не удалось связаться с облачной базой. Проверьте интернет.',
+                  type: 'sync',
+                  duration: 4000,
+                });
+              }}
+            />
+          )}
+
           {activeTab === 'workers' && (
             <WorkersTab
               workers={workers}
@@ -708,6 +790,19 @@ export default function Home() {
           initialProjectId={newInvoiceInitialProject}
           onClose={() => setIsNewInvoiceOpen(false)}
           onSave={handleSaveInvoice}
+        />
+      )}
+
+      {/* MODAL 5b: Фактура на уплату (входящая от поставщика) */}
+      {isSupplierInvoiceModalOpen && (
+        <SupplierInvoiceModal
+          invoice={supplierInvoiceForEdit}
+          projects={projects}
+          onClose={() => {
+            setIsSupplierInvoiceModalOpen(false);
+            setSupplierInvoiceForEdit(undefined);
+          }}
+          onSave={handleSaveSupplierInvoice}
         />
       )}
 
