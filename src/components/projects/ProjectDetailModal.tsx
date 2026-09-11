@@ -151,15 +151,16 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
   const projectWorkLogs = workLogs.filter(w => w.project_id === project.id);
   const projectTasks = (tasks || []).filter(t => t.project_id === project.id);
 
-  const totalSpent = projectExpenses.reduce((sum, e) => sum + e.amount_without_vat, 0);
-  const totalInvoiced = projectInvoices.reduce((sum, i) => sum + i.subtotal, 0);
+  const totalSpent = projectExpenses.reduce((sum, e) => sum + (e.amount_without_vat || 0), 0);
+  const totalInvoiced = projectInvoices.reduce((sum, i) => sum + (i.subtotal || i.total_amount || 0), 0);
   const totalPaid = projectInvoices
     .filter(i => i.payment_status === 'paid')
-    .reduce((sum, i) => sum + (i.paid_amount || 0), 0);
+    .reduce((sum, i) => sum + (i.paid_amount || i.total_amount || 0), 0);
 
-  const contractPrice = project.budget_estimated || 0;
+  const contractPrice = project.budget_estimated || totalPaid || totalInvoiced || 0;
   const currentNetProfit = contractPrice - totalSpent;
   const currentMarginPercent = contractPrice > 0 ? (currentNetProfit / contractPrice) * 100 : 0;
+
 
   const handleStatusChange = (newStatus: ProjectStatus) => {
     onUpdateProject({ ...project, status: newStatus });

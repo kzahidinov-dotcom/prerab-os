@@ -71,14 +71,14 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   onToggleTaskStatus,
   onOpenNewTask,
 }) => {
-  // 1. Total Revenue (Paid + Invoiced)
+  // 1. Total Revenue (Paid + Invoiced) strictly from Google Sheet invoices
   const totalRevenue = invoices.reduce((sum, inv) => sum + (inv.paid_amount || inv.total_amount || 0), 0);
   
-  // 2. Direct Project Costs (Expenses assigned to a project)
+  // 2. Direct Project Costs (Expenses assigned to a project in Google Sheet)
   const projectExpenses = expenses.filter(e => e.project_id && e.project_id.length > 0);
   const totalProjectExpenses = projectExpenses.reduce((sum, exp) => sum + (exp.amount_without_vat || 0), 0);
 
-  // 3. General Company Overhead (Expenses with NO project_id: Rent, Warehouse, Vito diesel, Ostap salary, Tools)
+  // 3. General Company Overhead (Expenses with NO project_id in Google Sheet)
   const generalExpenses = expenses.filter(e => !e.project_id || e.project_id.length === 0);
   const totalGeneralExpenses = generalExpenses.reduce((sum, exp) => sum + (exp.amount_without_vat || 0), 0);
 
@@ -97,22 +97,47 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   const activeProjects = projects.filter(p => p.status === 'in_progress');
   const completedProjects = projects.filter(p => p.status === 'completed');
 
-  // Breakdown of Overhead
-  const overheadCategories = [
-    { name: 'Аренда офиса и склада', sum: generalExpenses.filter(e => (e.description || '').toLowerCase().includes('аренда') || (e.description || '').toLowerCase().includes('склад')).reduce((s, e) => s + e.amount_without_vat, 0) },
-    { name: 'Зарплаты персонала (Остап, Женя, Водитель)', sum: generalExpenses.filter(e => (e.description || '').toLowerCase().includes('зарплата') || (e.description || '').toLowerCase().includes('остап') || (e.description || '').toLowerCase().includes('женя') || (e.description || '').toLowerCase().includes('шофер')).reduce((s, e) => s + e.amount_without_vat, 0) },
-    { name: 'Транспорт и Дизель (Vito)', sum: generalExpenses.filter(e => (e.description || '').toLowerCase().includes('транспорт') || (e.description || '').toLowerCase().includes('дизель') || (e.description || '').toLowerCase().includes('паливо')).reduce((s, e) => s + e.amount_without_vat, 0) },
-    { name: 'Инструменты и оснастка', sum: generalExpenses.filter(e => (e.description || '').toLowerCase().includes('інструмент') || (e.description || '').toLowerCase().includes('перфоратор') || (e.description || '').toLowerCase().includes('палета')).reduce((s, e) => s + e.amount_without_vat, 0) },
-    { name: 'Прочие общефирменные траты', sum: generalExpenses.filter(e => !(e.description || '').toLowerCase().includes('аренда') && !(e.description || '').toLowerCase().includes('склад') && !(e.description || '').toLowerCase().includes('зарплата') && !(e.description || '').toLowerCase().includes('дизель') && !(e.description || '').toLowerCase().includes('інструмент')).reduce((s, e) => s + e.amount_without_vat, 0) },
-  ].filter(c => c.sum > 0);
+  // Breakdown of Overhead based on real categories from STATISTICS FINAL
+  const overheadCategoriesMap: Record<string, number> = {};
+  generalExpenses.forEach(e => {
+    const rawVendor = (e.vendor || '').trim();
+    let catName = rawVendor;
+    const lower = rawVendor.toLowerCase();
+    if (lower.includes('транспорт') || lower.includes('дизель') || lower.includes('паливо') || lower.includes('bmw')) {
+      catName = 'Транспорт и топливо (Vito, BMW)';
+    } else if (lower.includes('інструмент') || lower.includes('инструмент') || lower.includes('перфоратор')) {
+      catName = 'Инструменты и оснастка';
+    } else if (lower.includes('офис') || lower.includes('склад')) {
+      catName = 'Аренда офиса и склада';
+    } else if (lower.includes('остап')) {
+      catName = 'Зарплата Остапа';
+    } else if (lower.includes('бухгалтер')) {
+      catName = 'Бухгалтерия';
+    } else if (lower.includes('смм') || lower.includes('таргет') || lower.includes('реклам')) {
+      catName = 'Маркетинг, SMM и таргет';
+    } else if (lower.includes('зв\'язок') || lower.includes('связ')) {
+      catName = 'Мобильная связь';
+    } else if (lower.includes('робочих') || lower.includes('рабочих')) {
+      catName = 'Общие рабочие бригады';
+    } else if (lower.includes('канцеляр') || lower.includes('підписк')) {
+      catName = 'Канцелярия и подписки';
+    } else {
+      catName = rawVendor || 'Прочие общефирменные траты';
+    }
+    overheadCategoriesMap[catName] = (overheadCategoriesMap[catName] || 0) + (e.amount_without_vat || 0);
+  });
+
+  const overheadCategories = Object.entries(overheadCategoriesMap)
+    .map(([name, sum]) => ({ name, sum }))
+    .sort((a, b) => b.sum - a.sum);
 
   // Top Active Projects with Margins
   const activeProjectsFinancials = activeProjects.map(prj => {
     const prjInvoices = invoices.filter(i => i.project_id === prj.id);
-    const revenue = prjInvoices.reduce((s, i) => s + (i.paid_amount || i.total_amount || 0), 0) || prj.budget_estimated;
+    const revenue = prjInvoices.reduce((s, i) => s + (i.paid_amount || i.total_amount || 0), 0) || prj.budget_estimated || 0;
     
     const prjExps = expenses.filter(e => e.project_id === prj.id);
-    const spent = prjExps.reduce((s, e) => s + e.amount_without_vat, 0) || prj.budget_actual_spent;
+    const spent = prjExps.reduce((s, e) => s + (e.amount_without_vat || 0), 0) || prj.budget_actual_spent || 0;
     
     const profit = revenue - spent;
     const margin = revenue > 0 ? (profit / revenue) * 100 : 0;
@@ -124,7 +149,8 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
       profit,
       margin,
     };
-  });
+  }).sort((a, b) => b.revenue - a.revenue);
+
 
   return (
     <div className="space-y-8">
@@ -282,8 +308,9 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
               <span>Текущие активные объекты в работе ({activeProjects.length})</span>
             </h3>
             <p className="text-xs text-slate-500 mt-0.5">
-              RuzChem, Jaslovska, Kpt. Rašu, Hergovic, Bebravska (ожидание оплат)
+              {activeProjects.map(p => p.title.replace('Ремонт объекта ', '').replace('Реновация объекта ', '').replace('Капремонт квартиры ', '').replace('Комплексный ремонт ', '')).join(', ')}
             </p>
+
           </div>
 
           <button
@@ -408,11 +435,11 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
           </div>
 
           <div className="grid grid-cols-2 gap-2 text-xs">
-            {completedProjects.slice(0, 8).map(prj => {
+            {completedProjects.slice(0, 10).map(prj => {
               const prjInvs = invoices.filter(i => i.project_id === prj.id);
-              const rev = prjInvs.reduce((s, i) => s + (i.paid_amount || i.total_amount || 0), 0) || prj.budget_estimated;
+              const rev = prjInvs.reduce((s, i) => s + (i.paid_amount || i.total_amount || 0), 0) || prj.budget_estimated || 0;
               const prjExps = expenses.filter(e => e.project_id === prj.id);
-              const exp = prjExps.reduce((s, e) => s + e.amount_without_vat, 0) || prj.budget_actual_spent;
+              const exp = prjExps.reduce((s, e) => s + (e.amount_without_vat || 0), 0) || prj.budget_actual_spent || 0;
               const prof = rev - exp;
 
               return (
@@ -421,14 +448,15 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                   onClick={() => onSelectProject(prj.id)}
                   className="p-2.5 rounded-xl bg-slate-50 hover:bg-white hover:shadow-card cursor-pointer transition-all border border-slate-200/60"
                 >
-                  <div className="font-bold text-slate-800 truncate">{prj.address}</div>
-                  <div className="text-[11px] text-emerald-600 font-bold mt-0.5 tnum">
-                    Маржа: +{formatSlovakEur(prof)}
+                  <div className="font-bold text-slate-800 truncate">{prj.address || prj.title}</div>
+                  <div className={`text-[11px] font-bold mt-0.5 tnum ${prof >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                    Маржа: {prof >= 0 ? '+' : ''}{formatSlovakEur(prof)}
                   </div>
                 </div>
               );
             })}
           </div>
+
         </div>
       </div>
     </div>

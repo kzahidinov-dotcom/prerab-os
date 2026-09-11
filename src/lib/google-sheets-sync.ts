@@ -14,17 +14,18 @@ export const ACTIVE_PROJECTS_NAMES = [
   'Kpt rašu', 
   'Hergovic', 
   'Bebravska',
-  'PlisnakB3'
+  'PlisnakB3',
+  'MikMelit'
 ];
 
 export function mapExpenseCategory(catRaw: string): ExpenseCategory {
   const c = (catRaw || '').toLowerCase();
   if (c.includes('дизайн')) return 'materials';
   if (c.includes('строй') || c.includes('материал')) return 'materials';
-  if (c.includes('зарплата') || c.includes('робочих') || c.includes('остап') || c.includes('женя') || c.includes('борис') || c.includes('махмуд') || c.includes('эзис') || c.includes('андрей')) return 'labor';
+  if (c.includes('зарплата') || c.includes('робочих') || c.includes('остап') || c.includes('женя') || c.includes('борис') || c.includes('махмуд') || c.includes('эзис') || c.includes('андрей') || c.includes('хюршит') || c.includes('юра')) return 'labor';
   if (c.includes('мусор') || c.includes('викид') || c.includes('контейнер')) return 'waste_disposal';
-  if (c.includes('інструмент') || c.includes('техник') || c.includes('перфоратор')) return 'tools_machinery';
-  if (c.includes('транспорт') || c.includes('дизель') || c.includes('бензин') || c.includes('паливо') || c.includes('вито')) return 'transport_fuel';
+  if (c.includes('інструмент') || c.includes('инструмент') || c.includes('техник') || c.includes('перфоратор')) return 'tools_machinery';
+  if (c.includes('транспорт') || c.includes('дизель') || c.includes('бензин') || c.includes('паливо') || c.includes('вито') || c.includes('bmw')) return 'transport_fuel';
   if (c.includes('аренда') || c.includes('офис') || c.includes('склад')) return 'overhead';
   return 'overhead';
 }
@@ -75,13 +76,14 @@ function parseDateToIso(dateStr: string): string {
 }
 
 // Friendly titles and client names
-const PROJECT_METADATA: Record<string, { title: string; client: string; address: string; city: string }> = {
+export const PROJECT_METADATA: Record<string, { title: string; client: string; address: string; city: string }> = {
   'Jaslovska': { title: 'Реновация объекта ул. Jaslovská', client: 'Клиент Jaslovská', address: 'Jaslovská 14', city: 'Bratislava - Petržalka' },
   'RuzChem': { title: 'Ремонт объекта Chemická (RuzChem)', client: 'Клиент Chemická', address: 'Chemická 8', city: 'Bratislava - Ružinov' },
   'Kpt rašu': { title: 'Капремонт квартиры ул. Kpt. Rašu', client: 'Клиент Kpt. Rašu', address: 'Kpt. Nálepku / Rašu', city: 'Bratislava - Dúbravka' },
   'Hergovic': { title: 'Комплексный ремонт ул. Hergottova', client: 'Клиент Hergottova', address: 'Hergottova 6', city: 'Bratislava - Ružinov' },
   'Bebravska': { title: 'Ремонт объекта ул. Bebravská (Ожидание оплат)', client: 'Клиент Bebravská', address: 'Bebravská 12', city: 'Bratislava - Vrakuňa' },
   'PlisnakB3': { title: 'Ремонт объекта PlisnakB3 (Babuškova 3)', client: 'Клиент PlisnakB3', address: 'Babuškova 3', city: 'Bratislava - Ružinov' },
+  'MikMelit': { title: 'Ремонт объекта MikMelit', client: 'Клиент MikMelit', address: 'Bratislava', city: 'Bratislava' },
   'Sibirska': { title: 'Ремонт квартиры ул. Sibírska', client: 'Клиент Sibírska', address: 'Sibírska 35', city: 'Bratislava - Nové Mesto' },
   'Lotysska': { title: 'Ремонт квартиры ул. Lotyšská', client: 'Клиент Lotyšská', address: 'Lotyšská 19', city: 'Bratislava - Podunajské Biskupice' },
   'Ozvoldik': { title: 'Ремонт объекта Ozvoldíková', client: 'Клиент Ozvoldíková', address: 'Ozvoldíková 3', city: 'Bratislava - Dúbravka' },
@@ -97,6 +99,7 @@ const PROJECT_METADATA: Record<string, { title: string; client: string; address:
   'Urminsky': { title: 'Ремонт объекта Urminský', client: 'Клиент Urminský', address: 'Bratislava', city: 'Bratislava' },
 };
 
+
 export function normalizeProjectKey(str: string): string {
   if (!str) return '';
   return str
@@ -111,6 +114,7 @@ export function matchCanonicalProjectKey(rawProject: string): string {
   if (!norm) return rawProject;
 
   if (norm.includes('plis') || norm.includes('babuskov')) return 'PlisnakB3';
+  if (norm.includes('mikmelit') || norm.includes('melit')) return 'MikMelit';
   if (norm.includes('herg')) return 'Hergovic';
   if (norm.includes('chem') || norm.includes('ruzchem')) return 'RuzChem';
   if (norm.includes('jaslov')) return 'Jaslovska';
@@ -144,6 +148,97 @@ export function getCanonicalClientId(rawProject: string): string {
   return `cli-${normalizeProjectKey(canonicalKey)}`;
 }
 
+export interface GoogleSheetParsedRow {
+  date: string;
+  author: string;
+  rawProject: string;
+  project: string;
+  category: string;
+  amount: number;
+  type: 'Дохід' | 'Витрата';
+  isGeneral: boolean;
+  paymentMethod: string;
+  description: string;
+}
+
+export function extractRowData(row: string[]): GoogleSheetParsedRow {
+  const recordType = (row[10] || '').trim();
+
+  let project = '';
+  let category = '';
+  let amountStr = '';
+  let type = '';
+  let paymentMethod = '';
+  let description = '';
+
+  if (recordType === 'Проектний розхід') {
+    project = row[11] || '';
+    category = row[13] || '';
+    amountStr = row[14] || '';
+    type = 'Витрата';
+    paymentMethod = row[16] || '';
+    description = row[17] || '';
+  } else if (recordType === 'Загальний розхід фірми') {
+    project = '';
+    category = row[18] || '';
+    amountStr = row[19] || '';
+    type = 'Витрата';
+    paymentMethod = row[20] || '';
+    description = row[21] || '';
+  } else if (recordType === 'Дохід') {
+    category = row[22] || '';
+    project = row[23] || '';
+    amountStr = row[24] || '';
+    type = 'Дохід';
+    paymentMethod = row[25] || '';
+    description = row[26] || '';
+  } else {
+    // Early rows or rows where col 10 is empty
+    if (row[31] || row[32] || row[33] || row[34]) {
+      project = row[31] || '';
+      category = row[32] || '';
+      amountStr = row[33] || '';
+      type = row[34] || '';
+      paymentMethod = row[35] || '';
+      description = row[36] || '';
+    } else {
+      project = row[3] || row[29] || '';
+      category = row[4] || row[28] || '';
+      amountStr = row[6] || row[30] || '';
+      type = row[5] || '';
+      paymentMethod = row[7] || '';
+      description = row[8] || '';
+    }
+  }
+
+  const amount = parseAmount(amountStr);
+  const rawProjTrimmed = project.trim();
+  const isGeneral = !rawProjTrimmed || 
+                    rawProjTrimmed === '-' || 
+                    rawProjTrimmed.toLowerCase() === 'загальні' || 
+                    rawProjTrimmed.toLowerCase().includes('загальні');
+
+  const canonicalProject = isGeneral ? '' : matchCanonicalProjectKey(rawProjTrimmed);
+
+  const isIncome = type.toLowerCase().includes('дохід') || 
+                   recordType.toLowerCase().includes('дохід') || 
+                   category.toLowerCase().includes('аванс') || 
+                   category.toLowerCase().includes('дохід');
+
+  return {
+    date: row[1] || '',
+    author: row[2] || '',
+    rawProject: rawProjTrimmed,
+    project: canonicalProject,
+    category: category.trim(),
+    amount,
+    type: isIncome ? 'Дохід' : 'Витрата',
+    isGeneral,
+    paymentMethod: paymentMethod.trim(),
+    description: description.trim(),
+  };
+}
+
 export async function syncFromGoogleSheets(customUrl?: string) {
   try {
     const sep = (customUrl || DEFAULT_GOOGLE_SHEET_URL).includes('?') ? '&' : '?';
@@ -162,39 +257,30 @@ export async function syncFromGoogleSheets(customUrl?: string) {
 
     const existingClients = storage.getClients();
     const existingProjects = storage.getProjects();
-    const existingExpenses = storage.getExpenses();
-    const existingInvoices = storage.getInvoices();
 
     const projectsMap: Record<string, Project> = {};
     const clientsMap: Record<string, Client> = {};
     const expenses: Expense[] = [];
     const invoices: Invoice[] = [];
 
-    // 1. FIRST: Load all existing clients from storage so user edits are NEVER lost
+    // 1. Load existing clients from storage so user edits are preserved
     existingClients.forEach(c => {
       clientsMap[c.id] = { ...c };
     });
 
-    // 2. Load all existing projects from storage so custom titles, addresses, statuses are NEVER lost
-    existingProjects.forEach(p => {
-      // Filter out duplicate orphan IDs if present
-      if (p.id === 'prj-1788766664312' || p.id === 'prj-jana_stanislava' || p.id === 'prj-kpt_ra_u') return;
-      projectsMap[p.id] = {
-        ...p,
-        budget_estimated: 0,
-        budget_cost_estimated: 0,
-        budget_actual_spent: 0,
-        invoiced_total: 0,
-        paid_total: 0,
-      };
-    });
-
-    // 3. Add default metadata for any project/client that doesn't exist yet
+    // 2. Initialize all 20 canonical projects cleanly (with 0 financial metrics)
     Object.keys(PROJECT_METADATA).forEach(name => {
       const meta = PROJECT_METADATA[name];
       const projId = getCanonicalProjectId(name);
       const clientId = getCanonicalClientId(name);
       const isActive = ACTIVE_PROJECTS_NAMES.includes(name);
+
+      const existingProject = existingProjects.find(p => 
+        p.id === projId ||
+        p.id === `prj-${normalizeProjectKey(name)}` ||
+        normalizeProjectKey(p.title) === normalizeProjectKey(name) ||
+        (name === 'PlisnakB3' && p.id.includes('plis'))
+      );
 
       if (!clientsMap[clientId]) {
         clientsMap[clientId] = {
@@ -211,59 +297,38 @@ export async function syncFromGoogleSheets(customUrl?: string) {
         };
       }
 
-      if (!projectsMap[projId]) {
-        projectsMap[projId] = {
-          id: projId,
-          title: meta.title,
-          client_id: clientId,
-          status: isActive ? 'in_progress' : 'completed',
-          address: meta.address,
-          city: meta.city,
-          start_date: '2026-04-01',
-          deadline: isActive ? '2026-10-31' : '2026-08-01',
-          budget_estimated: 0,
-          budget_cost_estimated: 0,
-          budget_actual_spent: 0,
-          invoiced_total: 0,
-          paid_total: 0,
-          notes: `Сметы и файлы на Google Диске: ${GOOGLE_DRIVE_ROOT_URL}`,
-          created_at: new Date().toISOString(),
-        };
-      }
+      projectsMap[projId] = {
+        id: projId,
+        title: existingProject?.title || meta.title,
+        client_id: clientId,
+        status: isActive ? 'in_progress' : (existingProject?.status || 'completed'),
+        address: existingProject?.address || meta.address,
+        city: existingProject?.city || meta.city,
+        start_date: existingProject?.start_date || '2026-04-01',
+        deadline: existingProject?.deadline || (isActive ? '2026-11-30' : '2026-08-01'),
+        budget_estimated: 0,
+        budget_cost_estimated: 0,
+        budget_actual_spent: 0,
+        invoiced_total: 0,
+        paid_total: 0,
+        notes: existingProject?.notes || `Импортировано из Google Таблицы STATISTICS FINAL`,
+        created_at: existingProject?.created_at || new Date().toISOString(),
+      };
     });
 
-    // Parse all rows from Google Sheet
+    // 3. Parse all rows from Google Sheet strictly and exclusively
     for (let i = 1; i < rawLines.length; i++) {
       const row = parseCsvLine(rawLines[i]);
       if (!row || row.length < 5) continue;
 
-      const timestamp = row[0] || '';
-      const dateRaw = row[1] || '';
-      const author = row[2] || '';
-      const recordType = row[10] || '';
+      const item = extractRowData(row);
+      if (!item.amount && !item.description) continue;
 
-      let rawProject = row[30] || row[3] || row[11] || row[23] || row[28] || '';
-      let categoryRaw = row[31] || row[4] || row[13] || row[18] || row[22] || row[27] || 'Інше';
-      let amount = parseAmount(row[32]) || parseAmount(row[6]) || parseAmount(row[14]) || parseAmount(row[19]) || parseAmount(row[24]) || parseAmount(row[29]);
-      let type = row[33] || row[5] || (recordType.toLowerCase().includes('дохід') ? 'Дохід' : (recordType.toLowerCase().includes('розхід') ? 'Витрата' : '')) || (categoryRaw.toLowerCase().includes('дохід') || categoryRaw.toLowerCase().includes('аванс') ? 'Дохід' : 'Витрата');
-      let paymentMethod = row[34] || row[7] || row[16] || row[20] || row[25] || 'Карта фірма';
-      let description = row[35] || row[8] || row[17] || row[21] || row[26] || '';
+      const isoDate = parseDateToIso(item.date);
 
-      if (!amount && !description) continue;
-
-      rawProject = rawProject.trim();
-      const isGeneralCompanyExpense = !rawProject || rawProject === '-' || rawProject.toLowerCase() === 'загальні' || rawProject.toLowerCase().includes('загальні');
-
-      const isIncome = type.toLowerCase().includes('дохід') || 
-                       recordType.toLowerCase().includes('дохід') || 
-                       categoryRaw.toLowerCase().includes('аванс') || 
-                       categoryRaw.toLowerCase().includes('дохід');
-      const isoDate = parseDateToIso(dateRaw || timestamp.split(' ')[0]);
-
-      if (isGeneralCompanyExpense) {
+      if (item.isGeneral) {
         // GENERAL OVERHEAD (Not a client project)
-        if (isIncome) {
-          // General income
+        if (item.type === 'Дохід') {
           invoices.push({
             id: `inv-g-${i}`,
             invoice_number: `INC-${i}`,
@@ -277,103 +342,73 @@ export async function syncFromGoogleSheets(customUrl?: string) {
             constant_symbol: '0308',
             items: [{
               id: `ii-g-${i}`,
-              description: description || categoryRaw,
+              description: item.description || item.category || 'Общий доход',
               unit: 'kpl',
               quantity: 1,
-              unit_price: amount,
-              total_without_vat: amount,
+              unit_price: item.amount,
+              total_without_vat: item.amount,
               vat_rate: 0,
               vat_amount: 0,
-              total_with_vat: amount,
+              total_with_vat: item.amount,
             }],
-            subtotal: amount,
+            subtotal: item.amount,
             vat_rate: 0,
             vat_amount: 0,
-            total_amount: amount,
+            total_amount: item.amount,
             is_reverse_charge: false,
             payment_status: 'paid',
-            paid_amount: amount,
-            payment_method: paymentMethod.toLowerCase().includes('готівка') ? 'cash' : 'bank_transfer',
-            notes: `Общий доход фирмы. Внес: ${author} (${paymentMethod})`,
+            paid_amount: item.amount,
+            payment_method: item.paymentMethod.toLowerCase().includes('готівка') ? 'cash' : 'bank_transfer',
+            notes: `Общий доход фирмы. Внес: ${item.author} (${item.paymentMethod})`,
           });
         } else {
-          // General overhead expense (Office, Warehouse, Vito fuel, Ostap salary)
           expenses.push({
             id: `exp-g-${i}`,
             project_id: '', // EMPTY project ID = General Company Overhead
-            category: mapExpenseCategory(categoryRaw),
-            vendor: categoryRaw,
-            description: description ? `${description} [${categoryRaw}]` : categoryRaw,
-            amount_without_vat: amount,
+            category: mapExpenseCategory(item.category),
+            vendor: item.category || 'Общие расходы',
+            description: item.description ? `${item.description} [${item.category}]` : item.category,
+            amount_without_vat: item.amount,
             vat_rate: 0,
             vat_amount: 0,
-            amount_with_vat: amount,
+            amount_with_vat: item.amount,
             receipt_number: `GF-GEN-${i}`,
             date: isoDate,
-            paid_by: `${paymentMethod}${author ? ` (${author})` : ''}`,
+            paid_by: `${item.paymentMethod}${item.author ? ` (${item.author})` : ''}`,
             status: 'approved',
           });
         }
       } else {
         // SPECIFIC PROJECT
-        const projKey = matchCanonicalProjectKey(rawProject);
-        const defaultProjId = getCanonicalProjectId(rawProject);
-
-        // Match existing project by canonical ID, raw key, title, or address
-        const existingProject = existingProjects.find(p => 
-          p.id === defaultProjId ||
-          p.id === `prj-${normalizeProjectKey(rawProject)}` ||
-          normalizeProjectKey(p.id) === normalizeProjectKey(defaultProjId) ||
-          normalizeProjectKey(p.title) === normalizeProjectKey(projKey) ||
-          normalizeProjectKey(p.title) === normalizeProjectKey(rawProject) ||
-          (p.title && normalizeProjectKey(p.title).includes(normalizeProjectKey(projKey))) ||
-          (p.address && normalizeProjectKey(p.address).includes('babuskov') && projKey === 'PlisnakB3')
-        );
-
-        const projId = existingProject ? existingProject.id : defaultProjId;
-        const clientId = existingProject?.client_id || getCanonicalClientId(rawProject);
-        const isActive = ACTIVE_PROJECTS_NAMES.includes(projKey) || existingProject?.status === 'in_progress';
+        const projKey = item.project;
+        const projId = getCanonicalProjectId(projKey);
+        const clientId = getCanonicalClientId(projKey);
 
         if (!projectsMap[projId]) {
+          const isActive = ACTIVE_PROJECTS_NAMES.includes(projKey);
           projectsMap[projId] = {
             id: projId,
-            title: existingProject?.title || PROJECT_METADATA[projKey]?.title || `Объект ${projKey}`,
+            title: PROJECT_METADATA[projKey]?.title || `Объект ${projKey}`,
             client_id: clientId,
-            status: existingProject?.status || (isActive ? 'in_progress' : 'completed'),
-            address: existingProject?.address || PROJECT_METADATA[projKey]?.address || projKey,
-            city: existingProject?.city || PROJECT_METADATA[projKey]?.city || 'Bratislava',
-            start_date: existingProject?.start_date || '2026-04-01',
-            deadline: existingProject?.deadline || (isActive ? '2026-11-30' : '2026-08-01'),
+            status: isActive ? 'in_progress' : 'completed',
+            address: PROJECT_METADATA[projKey]?.address || projKey,
+            city: PROJECT_METADATA[projKey]?.city || 'Bratislava',
+            start_date: '2026-04-01',
+            deadline: isActive ? '2026-11-30' : '2026-08-01',
             budget_estimated: 0,
             budget_cost_estimated: 0,
             budget_actual_spent: 0,
             invoiced_total: 0,
             paid_total: 0,
-            notes: existingProject?.notes || `Импортировано из Google Таблицы`,
-            created_at: existingProject?.created_at || new Date().toISOString(),
-          };
-        }
-
-        if (!clientsMap[clientId]) {
-          const existingClient = existingClients.find(c => c.id === clientId);
-          clientsMap[clientId] = existingClient ? { ...existingClient } : {
-            id: clientId,
-            type: 'person',
-            name: `Клиент ${projKey}`,
-            address: projKey,
-            city: 'Bratislava',
-            zip: '811 01',
-            phone: '',
-            email: '',
-            is_vat_payer: false,
+            notes: `Импортировано из Google Таблицы STATISTICS FINAL`,
             created_at: new Date().toISOString(),
           };
         }
 
-        if (isIncome) {
-          projectsMap[projId].budget_estimated += amount;
-          projectsMap[projId].invoiced_total += amount;
-          projectsMap[projId].paid_total += amount;
+        if (item.type === 'Дохід') {
+          projectsMap[projId].budget_estimated += item.amount;
+          projectsMap[projId].invoiced_total += item.amount;
+          projectsMap[projId].paid_total += item.amount;
 
           invoices.push({
             id: `inv-g-${i}`,
@@ -388,73 +423,57 @@ export async function syncFromGoogleSheets(customUrl?: string) {
             constant_symbol: '0308',
             items: [{
               id: `ii-g-${i}`,
-              description: description || `Аванс / Дохід по об'єкту ${projKey}`,
+              description: item.description || `Аванс / Оплата по объекту ${projKey}`,
               unit: 'kpl',
               quantity: 1,
-              unit_price: amount,
-              total_without_vat: amount,
+              unit_price: item.amount,
+              total_without_vat: item.amount,
               vat_rate: 0,
               vat_amount: 0,
-              total_with_vat: amount,
+              total_with_vat: item.amount,
             }],
-            subtotal: amount,
+            subtotal: item.amount,
             vat_rate: 0,
             vat_amount: 0,
-            total_amount: amount,
+            total_amount: item.amount,
             is_reverse_charge: false,
             payment_status: 'paid',
-            paid_amount: amount,
-            payment_method: paymentMethod.toLowerCase().includes('готівка') ? 'cash' : 'bank_transfer',
-            notes: `Внес: ${author} (${paymentMethod})`,
+            paid_amount: item.amount,
+            payment_method: item.paymentMethod.toLowerCase().includes('готівка') ? 'cash' : 'bank_transfer',
+            notes: `Внес: ${item.author} (${item.paymentMethod})`,
           });
         } else {
-          projectsMap[projId].budget_actual_spent += amount;
-          projectsMap[projId].budget_cost_estimated += amount;
+          projectsMap[projId].budget_actual_spent += item.amount;
+          projectsMap[projId].budget_cost_estimated += item.amount;
 
           expenses.push({
             id: `exp-g-${i}`,
             project_id: projId,
-            category: mapExpenseCategory(categoryRaw),
-            vendor: description.length > 3 ? description.split(' ')[0] : categoryRaw,
-            description: description ? `${description} [${categoryRaw}]` : categoryRaw,
-            amount_without_vat: amount,
+            category: mapExpenseCategory(item.category),
+            vendor: item.description.length > 3 ? item.description.split(' ')[0] : item.category,
+            description: item.description ? `${item.description} [${item.category}]` : item.category,
+            amount_without_vat: item.amount,
             vat_rate: 0,
             vat_amount: 0,
-            amount_with_vat: amount,
+            amount_with_vat: item.amount,
             receipt_number: `GF-${i}`,
             date: isoDate,
-            paid_by: `${paymentMethod}${author ? ` (${author})` : ''}`,
+            paid_by: `${item.paymentMethod}${item.author ? ` (${item.author})` : ''}`,
             status: 'approved',
           });
         }
       }
     }
 
-    // Merge manual user expenses (which do not start with exp-g-) with Google Sheet expenses
-    const manualExpenses = existingExpenses.filter(e => !e.id.startsWith('exp-g-'));
-    manualExpenses.forEach(me => {
-      if (me.project_id && projectsMap[me.project_id]) {
-        projectsMap[me.project_id].budget_actual_spent += (me.amount_without_vat || 0);
-      }
-    });
-    const allExpenses = [...manualExpenses, ...expenses].sort((a, b) => {
+    // Sort descending by date (newest first)
+    const allExpenses = expenses.sort((a, b) => {
       const tA = new Date(a.date).getTime() || 0;
       const tB = new Date(b.date).getTime() || 0;
       if (tA !== tB) return tB - tA;
       return (b.receipt_number || '').localeCompare(a.receipt_number || '');
     });
 
-    // Merge manual user invoices (which do not start with inv-g-) with Google Sheet invoices
-    const manualInvoices = existingInvoices.filter(i => !i.id.startsWith('inv-g-'));
-    manualInvoices.forEach(mi => {
-      if (mi.project_id && projectsMap[mi.project_id]) {
-        if (mi.payment_status === 'paid') {
-          projectsMap[mi.project_id].paid_total += (mi.paid_amount || mi.total_amount || 0);
-        }
-        projectsMap[mi.project_id].invoiced_total += (mi.subtotal || mi.total_amount || 0);
-      }
-    });
-    const allInvoices = [...manualInvoices, ...invoices].sort((a, b) => {
+    const allInvoices = invoices.sort((a, b) => {
       const tA = new Date(a.issue_date).getTime() || 0;
       const tB = new Date(b.issue_date).getTime() || 0;
       if (tA !== tB) return tB - tA;
@@ -464,7 +483,7 @@ export async function syncFromGoogleSheets(customUrl?: string) {
     const projectsList = Object.values(projectsMap);
     const clientsList = Object.values(clientsMap);
 
-    // Save cleanly to storage
+    // Save cleanly to storage & sync to Supabase
     storage.saveClients(clientsList);
     storage.saveProjects(projectsList);
     storage.saveExpenses(allExpenses);
@@ -476,10 +495,11 @@ export async function syncFromGoogleSheets(customUrl?: string) {
       completedProjectsCount: projectsList.filter(p => p.status === 'completed').length,
       expensesCount: expenses.length,
       invoicesCount: invoices.length,
-      message: `Синхронизировано: ${projectsList.filter(p => p.status === 'in_progress').length} активных объектов (${ACTIVE_PROJECTS_NAMES.join(', ')}), ${projectsList.filter(p => p.status === 'completed').length} завершенных и ${expenses.length} записей расходов!`,
+      message: `Синхронизировано со STATISTICS FINAL: ${projectsList.filter(p => p.status === 'in_progress').length} активных объектов (${ACTIVE_PROJECTS_NAMES.join(', ')}), ${projectsList.filter(p => p.status === 'completed').length} сданных и ${expenses.length} записей расходов!`,
     };
   } catch (err: any) {
     console.error('Sync error:', err);
     return { success: false, message: `Ошибка синхронизации: ${err.message || err}` };
   }
 }
+
