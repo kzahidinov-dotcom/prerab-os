@@ -41,6 +41,15 @@ const KNOWN_VENDORS: { match: string[]; name: string; category: ExpenseCategory 
   { match: ['obi.sk', 'obi.cz', '@obi'], name: 'OBI', category: 'materials' },
   { match: ['bauhaus'], name: 'Bauhaus', category: 'materials' },
   { match: ['siko'], name: 'SIKO Kúpeľne', category: 'materials' },
+  { match: ['stavebninydek'], name: 'Stavebniny DEK', category: 'materials' },
+  { match: ['maxparket'], name: 'MAX Parket', category: 'materials' },
+  { match: ['marcustrade'], name: 'MARCUS TRADE', category: 'materials' },
+  { match: ['top-obaly', 'topobaly'], name: 'TOP OBALY', category: 'materials' },
+  { match: ['harko', 'saniland'], name: 'HARKO / Saniland', category: 'materials' },
+  { match: ['lzcech'], name: 'L&Z Čech', category: 'materials' },
+  { match: ['ikea'], name: 'IKEA', category: 'materials' },
+  { match: ['faxcopy'], name: 'FaxCOPY', category: 'overhead' },
+  { match: ['websupport'], name: 'Websupport (hosting)', category: 'overhead' },
   { match: ['merkury'], name: 'Merkury Market', category: 'materials' },
   { match: ['woodcote'], name: 'Woodcote', category: 'materials' },
   { match: ['stavmat'], name: 'Stavmat', category: 'materials' },
@@ -243,6 +252,39 @@ export function looksLikeInvoiceEmail(email: RawInvoiceEmail): boolean {
   return !isPureAd;
 }
 
+// Длина IBAN по странам — отсекает случайные наборы символов из ссылок в письмах
+const IBAN_LENGTHS: Record<string, number> = {
+  SK: 24, CZ: 24, AT: 20, DE: 22, HU: 28, PL: 28, SI: 19, HR: 21,
+};
+
+/**
+ * Достает IBAN получателя: сначала рядом с меткой «IBAN», потом по формату.
+ * Результат проверяется по длине для страны, поэтому мусор из ссылок не пройдет.
+ */
+export function extractIban(text: string): string {
+  const shape = '[A-Z]{2}[ \\u00A0]?[0-9]{2}(?:[ \\u00A0]?[A-Z0-9]{4}){2,7}[ \\u00A0]?[A-Z0-9]{0,4}';
+  const candidates: string[] = [];
+
+  const labeled = text.match(new RegExp(`IBAN[^A-Za-z0-9]{0,12}(${shape})`, 'i'));
+  if (labeled) candidates.push(labeled[1]);
+
+  const generic = text.match(/\b(?:SK|CZ|AT|DE|HU|PL|SI|HR)[ \u00A0]?[0-9]{2}(?:[ \u00A0]?[A-Z0-9]{4}){2,7}/g);
+  if (generic) candidates.push(...generic);
+
+  for (const candidate of candidates) {
+    const clean = candidate.replace(/[\s\u00A0]/g, '').toUpperCase();
+    if (!/^[A-Z]{2}[0-9]{2}[A-Z0-9]{11,30}$/.test(clean)) continue;
+    const expected = IBAN_LENGTHS[clean.slice(0, 2)];
+    if (expected) {
+      if (clean.length !== expected) continue;
+    } else if (clean.length < 15 || clean.length > 34) {
+      continue;
+    }
+    return clean;
+  }
+  return '';
+}
+
 /**
  * Главный разбор письма: достает поставщика, номер, суммы, VS, IBAN и сроки.
  */
@@ -260,6 +302,9 @@ export function parseInvoiceEmail(email: RawInvoiceEmail): ParsedInvoiceFields {
     'celkom\\s*s\\s*dph', 'spolu\\s*s\\s*dph', 'celková\\s*suma', 'celkova\\s*suma',
     'cena\\s*celkom', 'zostáva\\s*uhradiť', 'к\\s*оплате', 'итого\\s*к\\s*оплате',
     'total\\s*amount', 'amount\\s*due', 'total',
+    // Последняя очередь: короткие метки без уточнения («Celkom 450,00 EUR»).
+    // Отрицательная проверка не дает поймать строку «Celkom bez DPH».
+    'suma\\s*celkom', 'celkom(?!\\s*bez)', 'spolu(?!\\s*bez)', 'итого(?!\\s*без)',
   ]);
 
   // 2. База без DPH
@@ -306,8 +351,7 @@ export function parseInvoiceEmail(email: RawInvoiceEmail): ParsedInvoiceFields {
   }
 
   // 6. IBAN и IČO поставщика
-  const ibanMatch = text.match(/\b([A-Z]{2}\d{2}(?:[  ]?[A-Z0-9]{4}){3,7})\b/);
-  const supplierIban = ibanMatch ? ibanMatch[1].replace(/[\s ]/g, '') : '';
+  const supplierIban = extractIban(text);
   const icoMatch = text.match(/i[čc]o[^0-9]{0,10}(\d{8})/i);
 
   // 7. Даты
@@ -380,10 +424,29 @@ export function buildSupplierInvoiceFromEmail(email: RawInvoiceEmail, idSuffix?:
     email_received_at: receivedIso,
     attachment_name: email.attachment_name,
     attachment_url: email.attachment_url,
-    notes: parsed.confidence < 0.6 ? 'Автоприем с почты: проверьте сумму и срок оплаты вручную.' : undefined,
+    notes: buildNotes(email, parsed),
     created_at: now,
     updated_at: now,
   };
+}
+
+// Подсказка бухгалтеру: залоговая фактура — предоплата до поставки товара
+function buildNotes(email: RawInvoiceEmail, parsed: ParsedInvoiceFields): string | undefined {
+  const haystack = `${email.subject || ''} ${stripHtml(email.body || email.html || '').slice(0, 2000)} ${(email.attachment_text || '').slice(0, 2000)}`.toLowerCase();
+  const notes: string[] = [];
+
+  if (/z[áa]lohov|proforma|predfakt/.test(haystack)) {
+    notes.push('Залоговая фактура (предоплата до поставки).');
+  }
+  // SIKO и другие шлют «Daňový doklad k platbe» уже ПОСЛЕ оплаты картой
+  if (/doklad k platbe|k prijatej platbe|potvrdenie o platbe|doklad k zaplaten/.test(haystack)) {
+    notes.push('Похоже, документ об уже произведенной оплате — проверьте, не оплатите второй раз.');
+  }
+  if (parsed.confidence < 0.6 || parsed.amount_with_vat <= 0) {
+    notes.push('Автоприем с почты: проверьте сумму и срок оплаты вручную.');
+  }
+
+  return notes.length > 0 ? notes.join(' ') : undefined;
 }
 
 /**
