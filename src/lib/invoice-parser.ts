@@ -78,12 +78,18 @@ const CATEGORY_KEYWORDS: { words: string[]; category: ExpenseCategory }[] = [
   { words: ['telefón', 'internet', 'poistenie', 'nájom kancelárie', 'účtovníctvo'], category: 'overhead' },
 ];
 
-// Признаки того, что письмо действительно является фактурой на уплату
+// Надежные признаки фактуры: само слово «фактура» или «налоговый документ»
 const INVOICE_MARKERS = [
-  'faktúra', 'faktura', 'faktúru', 'faktúry', 'fakturu',
-  'daňový doklad', 'danovy doklad', 'zálohová faktúra', 'proforma',
+  'faktúra', 'faktura', 'faktúru', 'faktúry', 'fakturu', 'faktúrou',
+  'daňový doklad', 'danovy doklad', 'danový doklad', 'zálohová faktúra', 'proforma',
+  'invoice', 'фактура', 'счет на оплату', 'счёт на оплату',
+];
+
+// Слабые признаки: встречаются и в обычных письмах магазинов
+// («ваш заказ ждет оплаты»), поэтому засчитываются только вместе с вложением
+const WEAK_INVOICE_MARKERS = [
   'na úhradu', 'na uhradu', 'k úhrade', 'k uhrade', 'splatnosť', 'splatnost',
-  'invoice', 'фактура', 'счет на оплату', 'счёт на оплату', 'к оплате',
+  'к оплате', 'amount due',
 ];
 
 export function stripHtml(input: string): string {
@@ -238,18 +244,38 @@ export function looksLikeInvoiceEmail(email: RawInvoiceEmail): boolean {
   // Текст, распознанный из PDF: письмо может быть пустым, а фактура — внутри вложения
   const attachmentText = (email.attachment_text || '').slice(0, 4000).toLowerCase();
 
-  const hasMarker =
+  const hasStrongMarker =
     INVOICE_MARKERS.some(m => subject.includes(m)) ||
     INVOICE_MARKERS.some(m => body.includes(m)) ||
     INVOICE_MARKERS.some(m => attachmentText.includes(m)) ||
     /fakt|invoice|фактур/i.test(attachment);
 
-  if (!hasMarker) return false;
+  // «Ваш заказ ждет оплаты» — это напоминание магазина, а не фактура.
+  // Такие слова принимаем в расчет, только если к письму приложен документ.
+  const hasAttachment = !!(email.attachment_name || email.attachment_url || email.attachment_text);
+  const hasWeakMarker =
+    hasAttachment &&
+    (WEAK_INVOICE_MARKERS.some(m => subject.includes(m)) ||
+      WEAK_INVOICE_MARKERS.some(m => body.includes(m)) ||
+      WEAK_INVOICE_MARKERS.some(m => attachmentText.includes(m)));
+
+  if (!hasStrongMarker && !hasWeakMarker) return false;
 
   // Рекламные рассылки отсекаем
   const spamMarkers = ['newsletter', 'akcia týždňa', 'zľava', 'výpredaj', 'reklam', 'unsubscribe z newsletter'];
   const isPureAd = spamMarkers.some(m => subject.includes(m)) && !subject.includes('fakt');
-  return !isPureAd;
+  if (isPureAd) return false;
+
+  // «Objednávka ... čaká na úhradu», «platba nebola dokončená» — напоминания
+  // интернет-магазина об оплате заказа, документа в них нет
+  const isOrderReminder =
+    /(objedn[áa]vka|objedn[áa]vku|zamow|заказ).{0,60}(ča?k[áa]|čeká|ceka)/i.test(subject) ||
+    /nebola dokončená platba|platba nebola dokončená|dokončite platbu|nedokončená objednávka/i.test(`${subject} ${body}`);
+  if (isOrderReminder && !/fakt|invoice|daňov[ýy] doklad/i.test(`${subject} ${(email.attachment_name || '')}`)) {
+    return false;
+  }
+
+  return true;
 }
 
 // Длина IBAN по странам — отсекает случайные наборы символов из ссылок в письмах
